@@ -1,0 +1,5 @@
+[versions]
+jspecify = "1.0.0"
+
+[libraries]
+jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }

@@ -1,0 +1,97 @@
+name: Compile, test, build documentation and publish to maven on release
+
+on:
+  release:
+    types: [ published ]
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Checkout repository'
+        uses: actions/checkout@v5.0.0
+      - name: 'Set up JDK 25'
+        uses: actions/setup-java@v5.0.0
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+      - name: 'Grant Permission to Gradle'
+        run: chmod +x gradlew
+      - name: 'Setup Gradle'
+        uses: gradle/actions/setup-gradle@v4.4.3
+      - name: 'Compile with Gradle'
+        run: ./gradlew classes # Use classes instead of build to not make the test task redundant
+  test:
+    needs: compile
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Checkout repository'
+        uses: actions/checkout@v5.0.0
+      - name: 'Set up JDK 25'
+        uses: actions/setup-java@v5.0.0
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+      - name: 'Grant Permission to Gradle'
+        run: chmod +x gradlew
+      - name: 'Setup Gradle'
+        uses: gradle/actions/setup-gradle@v4.4.3
+      - name: 'Test with Gradle'
+        run: ./gradlew test
+      - name: 'Upload test results'
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            build/reports/tests/test
+            build/test-results/test
+          retention-days: 30
+  build-docs:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Checkout repository'
+        uses: actions/checkout@v5.0.0
+      - name: 'Set up JDK 25'
+        uses: actions/setup-java@v5.0.0
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+      - name: 'Grant Permission to Gradle'
+        run: chmod +x gradlew
+      - name: 'Setup Gradle'
+        uses: gradle/actions/setup-gradle@v4.4.3
+      - name: 'Build documentation with Gradle'
+        run: ./gradlew javadoc
+      - name: 'Upload documentation'
+        uses: actions/upload-artifact@v4
+        with:
+          name: javadoc-documentation
+          path: build/docs/javadoc/
+          retention-days: 30
+  publish:
+    needs: build-docs
+    runs-on: ubuntu-latest
+    environment: Default
+    env:
+      MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+      MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+      VERSION: ${{ github.event.release.tag_name }}
+    steps:
+      - name: 'Checkout repository'
+        uses: actions/checkout@v5.0.0
+      - name: 'Set up JDK 25'
+        uses: actions/setup-java@v5.0.0
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+      - name: 'Grant Permission to Gradle'
+        run: chmod +x gradlew
+      - name: 'Setup Gradle'
+        uses: gradle/actions/setup-gradle@v4.4.3
+      - name: 'Publish with Gradle'
+        run: ./gradlew publish
