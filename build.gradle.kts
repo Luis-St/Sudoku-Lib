@@ -7,9 +7,6 @@ plugins {
 	`maven-publish`
 }
 
-group = "net.luis"
-version = "1.0.0"
-
 repositories {
 	mavenCentral()
 }
