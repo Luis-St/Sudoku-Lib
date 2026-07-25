@@ -34,12 +34,16 @@ java {
 	withJavadocJar()
 }
 
+tasks.withType<JavaCompile>().configureEach {
+	options.release.set(17)
+}
+
 publishing {
 	publications {
 		create<MavenPublication>("mavenJava") {
 			if (projectVersion != null) {
 				groupId = "net.luis"
-				artifactId = "Sudoku-Lib"
+				artifactId = "sudoku-lib"
 				version = projectVersion
 				artifact(tasks.named<Jar>("jar"))
 				artifact(tasks.named<Jar>("sourcesJar"))
