@@ -58,8 +58,8 @@ public final class HintEngine {
 	public static HintResult consume(Puzzle puzzle, HintCandidate candidate) {
 		Objects.requireNonNull(puzzle, "Puzzle must not be null");
 		Objects.requireNonNull(candidate, "Candidate must not be null");
-		SolveStep step = TechniqueSolver.nextStep(puzzle).orElseThrow(
-			() -> new IllegalStateException("No hint is available for the current board"));
+		
+		SolveStep step = TechniqueSolver.nextStep(puzzle).orElseThrow(() -> new IllegalStateException("No hint is available for the current board"));
 		if (step.cellIndex() != candidate.cellIndex()) {
 			throw new IllegalStateException("The board changed since the hint was peeked; peek again before consuming");
 		}

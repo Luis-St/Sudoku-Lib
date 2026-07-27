@@ -1,8 +1,7 @@
 package net.luis.sudoku.difficulty;
 
 import net.luis.sudoku.grid.GridSize;
-import net.luis.sudoku.solver.Technique;
-import net.luis.sudoku.solver.TechniqueReport;
+import net.luis.sudoku.solver.*;
 
 import java.util.*;
 
@@ -10,7 +9,7 @@ import java.util.*;
  * The size-aware configuration that maps a {@link TechniqueReport} to a numbered {@link Difficulty} band.
  * <p>
  *     Difficulty is derived from <b>which techniques a puzzle forces</b>, not from the number of givens (spec §4.3).
- *     The dominant signal is the hardest technique the {@link net.luis.sudoku.solver.TechniqueSolver} needed; a puzzle
+ *     The dominant signal is the hardest technique the {@link TechniqueSolver} needed; a puzzle
  *     it cannot finish without guessing is beyond the modelled technique set and falls in the hardest band. The rank
  *     boundaries below group the eleven techniques into five bands:
  * </p>

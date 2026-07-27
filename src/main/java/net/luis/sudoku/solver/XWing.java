@@ -67,11 +67,13 @@ public final class XWing implements TechniqueStrategy {
 				if (Integer.bitCount(mask1) != 2) {
 					continue;
 				}
+				
 				for (int base2 = base1 + 1; base2 < n; base2++) {
 					int mask2 = this.lineMask(grid, rowForm, base2, digit);
 					if (mask2 != mask1) {
 						continue;
 					}
+					
 					int count = 0;
 					int coverA = Integer.numberOfTrailingZeros(mask1);
 					int coverB = Integer.numberOfTrailingZeros(mask1 & (mask1 - 1));
@@ -86,6 +88,7 @@ public final class XWing implements TechniqueStrategy {
 							}
 						}
 					}
+					
 					if (count > 0) {
 						int[] resultCells = Arrays.copyOf(cells, count);
 						int[] resultDigits = Arrays.copyOf(digits, count);

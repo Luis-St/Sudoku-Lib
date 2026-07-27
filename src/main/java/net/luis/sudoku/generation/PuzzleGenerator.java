@@ -89,6 +89,7 @@ public final class PuzzleGenerator {
 			// to about half the grid — still a challenging puzzle given the irregular regions, but bounded and fast.
 			return size.cellCount() / 2;
 		}
+		
 		return switch (size) {
 			case SIXTEEN -> 140;
 			case TWELVE -> 90;
@@ -119,6 +120,7 @@ public final class PuzzleGenerator {
 		int maxHoles = maxHolesFor(key.size(), key.variant());
 		Difficulty target = targetBandFor(key);
 		DeterministicRandom random = KeyDerivation.randomFor(key);
+		
 		RegionPartition partition;
 		int[] chaosSolution = null;
 		if (key.variant() == Variant.CHAOS) {
@@ -128,6 +130,7 @@ public final class PuzzleGenerator {
 		} else {
 			partition = ClassicRegionPartition.of(key.size());
 		}
+		
 		GeneratedPuzzle closest = null;
 		int closestDistance = Integer.MAX_VALUE;
 		for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -141,18 +144,21 @@ public final class PuzzleGenerator {
 				}
 				solution = filled.orElseThrow();
 			}
+			
 			int[] givens = HoleDigger.dig(partition, solution, random, maxHoles);
 			Puzzle puzzle = Puzzle.ofGivens(key.size(), key.variant(), partition, givens);
 			Difficulty rated = RATER.rate(puzzle);
 			if (rated == target) {
 				return new GeneratedPuzzle(key, puzzle, solution);
 			}
+			
 			int distance = Math.abs(rated.index() - target.index());
 			if (distance < closestDistance) {
 				closestDistance = distance;
 				closest = new GeneratedPuzzle(key, puzzle, solution);
 			}
 		}
+		
 		if (closest == null) {
 			throw new IllegalStateException("Failed to generate any puzzle for " + key + " within " + MAX_ATTEMPTS + " attempts");
 		}

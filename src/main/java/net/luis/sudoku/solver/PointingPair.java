@@ -56,6 +56,7 @@ public final class PointingPair implements TechniqueStrategy {
 					if (!grid.hasCandidate(cell, digit)) {
 						continue;
 					}
+					
 					int cellRow = grid.rowOf(cell);
 					int cellColumn = grid.columnOf(cell);
 					if (seen == 0) {
@@ -65,6 +66,7 @@ public final class PointingPair implements TechniqueStrategy {
 						sameRow &= cellRow == row;
 						sameColumn &= cellColumn == column;
 					}
+					
 					seen++;
 				}
 				if (seen < 2) {
@@ -79,6 +81,7 @@ public final class PointingPair implements TechniqueStrategy {
 							count++;
 						}
 					}
+					
 					if (count > 0) {
 						return Optional.of(new Deduction.Eliminations(Technique.POINTING_PAIR, Arrays.copyOf(cells, count), Arrays.copyOf(digits, count)));
 					}
@@ -92,6 +95,7 @@ public final class PointingPair implements TechniqueStrategy {
 							count++;
 						}
 					}
+					
 					if (count > 0) {
 						return Optional.of(new Deduction.Eliminations(Technique.POINTING_PAIR, Arrays.copyOf(cells, count), Arrays.copyOf(digits, count)));
 					}

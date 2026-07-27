@@ -61,11 +61,13 @@ public final class TechniqueSolver {
 		Objects.requireNonNull(puzzle, "Puzzle must not be null");
 		CandidateGrid grid = new CandidateGrid(puzzle);
 		EnumMap<Technique, Integer> usage = new EnumMap<>(Technique.class);
+		
 		while (!grid.isComplete()) {
 			Deduction deduction = nextDeduction(grid);
 			if (deduction == null) {
 				return new TechniqueReport(false, true, grid.values(), usage);
 			}
+			
 			deduction.applyTo(grid);
 			usage.merge(deduction.technique(), 1, Integer::sum);
 		}
@@ -94,6 +96,7 @@ public final class TechniqueSolver {
 			if (deduction == null) {
 				return Optional.empty();
 			}
+			
 			Technique technique = deduction.technique();
 			if (hardest == null || technique.rank() > hardest.rank()) {
 				hardest = technique;
@@ -101,6 +104,7 @@ public final class TechniqueSolver {
 			if (deduction instanceof Deduction.Placement placement) {
 				return Optional.of(new SolveStep(placement.cell(), placement.digit(), hardest));
 			}
+			
 			deduction.applyTo(grid);
 		}
 		return Optional.empty();

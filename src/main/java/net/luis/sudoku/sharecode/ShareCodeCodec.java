@@ -2,7 +2,9 @@ package net.luis.sudoku.sharecode;
 
 import net.luis.sudoku.key.KeyDerivation;
 import net.luis.sudoku.key.PuzzleKey;
+import net.luis.sudoku.version.GenVersion;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -17,7 +19,7 @@ import java.util.Objects;
  * </p>
  * <p>
  *     The wire format is load-bearing: it is pinned by golden tests, and any change to it — or to the generator it
- *     addresses — must bump {@link net.luis.sudoku.version.GenVersion}, since an old code must always reproduce the
+ *     addresses — must bump {@link GenVersion}, since an old code must always reproduce the
  *     puzzle it was created for.
  * </p>
  */
@@ -35,7 +37,8 @@ public final class ShareCodeCodec {
 	
 	private static int[] buildReverse() {
 		int[] reverse = new int[128];
-		java.util.Arrays.fill(reverse, -1);
+		Arrays.fill(reverse, -1);
+		
 		for (int index = 0; index < ALPHABET.length; index++) {
 			reverse[ALPHABET[index]] = index;
 		}
@@ -51,6 +54,7 @@ public final class ShareCodeCodec {
 	 */
 	public static String encode(PuzzleKey key) {
 		Objects.requireNonNull(key, "Key must not be null");
+		
 		byte[] bytes = KeyDerivation.encode(key);
 		StringBuilder code = new StringBuilder(CODE_LENGTH);
 		int buffer = 0;
@@ -58,11 +62,13 @@ public final class ShareCodeCodec {
 		for (byte value : bytes) {
 			buffer = (buffer << 8) | (value & 0xFF);
 			bits += 8;
+			
 			while (bits >= 5) {
 				bits -= 5;
 				code.append(ALPHABET[(buffer >>> bits) & 0x1F]);
 			}
 		}
+		
 		if (bits > 0) {
 			code.append(ALPHABET[(buffer << (5 - bits)) & 0x1F]);
 		}
@@ -83,6 +89,7 @@ public final class ShareCodeCodec {
 		if (code.length() != CODE_LENGTH) {
 			throw new IllegalArgumentException("Share code must be " + CODE_LENGTH + " characters, but was " + code.length());
 		}
+		
 		byte[] bytes = new byte[KeyDerivation.ENCODED_LENGTH];
 		int buffer = 0;
 		int bits = 0;
@@ -93,6 +100,7 @@ public final class ShareCodeCodec {
 			if (value < 0) {
 				throw new IllegalArgumentException("Illegal share-code character '" + code.charAt(index) + "' at position " + index);
 			}
+			
 			buffer = (buffer << 5) | value;
 			bits += 5;
 			if (bits >= 8) {

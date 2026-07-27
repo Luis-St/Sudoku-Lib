@@ -64,6 +64,7 @@ public final class CandidateGrid {
 		for (int cell = 0; cell < this.cellCount; cell++) {
 			this.regionOf[cell] = this.partition.regionOf(cell);
 		}
+		
 		this.rowUnits = new int[this.n][this.n];
 		this.columnUnits = new int[this.n][this.n];
 		for (int line = 0; line < this.n; line++) {
@@ -72,10 +73,12 @@ public final class CandidateGrid {
 				this.columnUnits[line][position] = position * this.n + line;
 			}
 		}
+		
 		this.regionUnits = new int[this.n][];
 		for (int regionIndex = 0; regionIndex < this.n; regionIndex++) {
 			this.regionUnits[regionIndex] = this.partition.region(regionIndex).cells();
 		}
+		
 		this.candidates = new int[this.cellCount];
 		int[] rowUsed = new int[this.n];
 		int[] columnUsed = new int[this.n];
@@ -89,16 +92,19 @@ public final class CandidateGrid {
 				regionUsed[this.regionOf[cell]] |= bit;
 			}
 		}
+		
 		for (int cell = 0; cell < this.cellCount; cell++) {
 			if (this.values[cell] == 0) {
 				this.candidates[cell] = this.fullMask & ~(rowUsed[cell / this.n] | columnUsed[cell % this.n] | regionUsed[this.regionOf[cell]]);
 			}
 		}
+		
 		this.peers = new int[this.cellCount][];
 		boolean[] mark = new boolean[this.cellCount];
 		for (int cell = 0; cell < this.cellCount; cell++) {
 			this.buildPeers(cell, mark);
 		}
+		
 		this.rowList = List.of(this.rowUnits);
 		this.columnList = List.of(this.columnUnits);
 		this.regionList = List.of(this.regionUnits);
@@ -118,9 +124,11 @@ public final class CandidateGrid {
 			count += this.markPeer(this.rowUnits[row][position], cell, mark) ? 1 : 0;
 			count += this.markPeer(this.columnUnits[column][position], cell, mark) ? 1 : 0;
 		}
+		
 		for (int member : this.regionUnits[region]) {
 			count += this.markPeer(member, cell, mark) ? 1 : 0;
 		}
+		
 		int[] peerArray = new int[count];
 		int index = 0;
 		for (int candidate = 0; candidate < this.cellCount; candidate++) {
@@ -129,6 +137,7 @@ public final class CandidateGrid {
 				mark[candidate] = false;
 			}
 		}
+		
 		this.peers[cell] = peerArray;
 	}
 	
@@ -136,6 +145,7 @@ public final class CandidateGrid {
 		if (candidate == cell || mark[candidate]) {
 			return false;
 		}
+		
 		mark[candidate] = true;
 		return true;
 	}
@@ -258,10 +268,12 @@ public final class CandidateGrid {
 		if (this.values[cell] != 0) {
 			throw new IllegalStateException("Cell " + cell + " already holds " + this.values[cell]);
 		}
+		
 		int bit = 1 << digit;
 		if ((this.candidates[cell] & bit) == 0) {
 			throw new IllegalArgumentException("Digit " + digit + " is not a candidate of cell " + cell);
 		}
+		
 		this.values[cell] = digit;
 		this.candidates[cell] = 0;
 		for (int peer : this.peers[cell]) {
@@ -282,6 +294,7 @@ public final class CandidateGrid {
 		if ((this.candidates[cell] & bit) == 0) {
 			return false;
 		}
+		
 		this.candidates[cell] &= ~bit;
 		return true;
 	}
@@ -317,10 +330,12 @@ public final class CandidateGrid {
 				if (value == 0) {
 					continue;
 				}
+				
 				int bit = 1 << value;
 				if ((seen & bit) != 0) {
 					return false;
 				}
+				
 				seen |= bit;
 			}
 		}

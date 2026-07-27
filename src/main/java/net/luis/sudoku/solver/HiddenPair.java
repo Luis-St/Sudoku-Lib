@@ -43,10 +43,12 @@ public final class HiddenPair implements TechniqueStrategy {
 				if (Integer.bitCount(maskA) != 2) {
 					continue;
 				}
+				
 				for (int b = a + 1; b <= n; b++) {
 					if (this.cellsWith(grid, unit, b) != maskA) {
 						continue;
 					}
+					
 					int keep = (1 << a) | (1 << b);
 					Optional<Deduction> elimination = this.eliminate(grid, unit, maskA, keep);
 					if (elimination.isPresent()) {
@@ -75,10 +77,12 @@ public final class HiddenPair implements TechniqueStrategy {
 		List<Integer> cells = new ArrayList<>();
 		List<Integer> digits = new ArrayList<>();
 		int remaining = positionMask;
+		
 		while (remaining != 0) {
 			int position = Integer.numberOfTrailingZeros(remaining);
 			remaining &= remaining - 1;
 			int cell = unit[position];
+			
 			for (int digit = 1; digit <= grid.n(); digit++) {
 				if ((keep & (1 << digit)) == 0 && grid.hasCandidate(cell, digit)) {
 					cells.add(cell);
@@ -86,6 +90,7 @@ public final class HiddenPair implements TechniqueStrategy {
 				}
 			}
 		}
+		
 		if (cells.isEmpty()) {
 			return Optional.empty();
 		}

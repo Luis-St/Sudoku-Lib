@@ -3,13 +3,14 @@ package net.luis.sudoku.generation;
 import net.luis.sudoku.grid.GridSize;
 import net.luis.sudoku.grid.RegionPartition;
 import net.luis.sudoku.rng.DeterministicRandom;
+import net.luis.sudoku.solver.BacktrackingSolver;
 
 import java.util.Optional;
 
 /**
  * Produces one complete, valid solution grid for a {@link RegionPartition} by seeded randomized backtracking.
  * <p>
- *     This is the randomized sibling of {@link net.luis.sudoku.solver.BacktrackingSolver}: it shares the same
+ *     This is the randomized sibling of {@link BacktrackingSolver}: it shares the same
  *     minimum-remaining-values cell selection and the same {@code int} bitmask bookkeeping per row, per column and
  *     per region, and it works purely against the generalized {@link RegionPartition} so that a classic box layout
  *     and a chaos (jigsaw) layout run through exactly the same code path. The one and only difference is what makes
@@ -97,6 +98,7 @@ public final class SolutionFiller {
 			if (cellIndex == -1) {
 				return true;
 			}
+			
 			int row = cellIndex / this.n;
 			int column = cellIndex % this.n;
 			int region = this.regionOf[cellIndex];
@@ -124,6 +126,7 @@ public final class SolutionFiller {
 				if (this.values[cellIndex] != 0) {
 					continue;
 				}
+				
 				int row = cellIndex / this.n;
 				int column = cellIndex % this.n;
 				int region = this.regionOf[cellIndex];
@@ -149,6 +152,7 @@ public final class SolutionFiller {
 				mask &= mask - 1;
 				digits[count++] = Integer.numberOfTrailingZeros(bit);
 			}
+			
 			this.random.shuffle(digits);
 			return digits;
 		}

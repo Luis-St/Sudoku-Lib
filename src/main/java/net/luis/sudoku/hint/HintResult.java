@@ -1,5 +1,6 @@
 package net.luis.sudoku.hint;
 
+import net.luis.sudoku.grid.Puzzle;
 import net.luis.sudoku.solver.Technique;
 
 import java.util.Objects;
@@ -14,7 +15,7 @@ import java.util.Objects;
  * @param digit The digit to place into the cell
  * @param technique The technique that justified the placement
  *
- * @see HintEngine#consume(net.luis.sudoku.grid.Puzzle, HintCandidate)
+ * @see HintEngine#consume(Puzzle, HintCandidate)
  */
 public record HintResult(int cellIndex, int digit, Technique technique) {
 	

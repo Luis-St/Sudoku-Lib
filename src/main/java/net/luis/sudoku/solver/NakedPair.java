@@ -50,12 +50,14 @@ public final class NakedPair implements TechniqueStrategy {
 				if (grid.candidateCount(first) != 2) {
 					continue;
 				}
+				
 				int mask = grid.candidates(first);
 				for (int j = i + 1; j < unit.length; j++) {
 					int second = unit[j];
 					if (grid.candidates(second) != mask) {
 						continue;
 					}
+					
 					Optional<Deduction> elimination = this.eliminate(grid, unit, mask, first, second);
 					if (elimination.isPresent()) {
 						return elimination;
@@ -73,6 +75,7 @@ public final class NakedPair implements TechniqueStrategy {
 			if (cell == first || cell == second) {
 				continue;
 			}
+			
 			for (int digit = 1; digit <= grid.n(); digit++) {
 				if ((mask & (1 << digit)) != 0 && grid.hasCandidate(cell, digit)) {
 					cells.add(cell);

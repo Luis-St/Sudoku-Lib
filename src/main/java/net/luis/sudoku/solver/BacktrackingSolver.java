@@ -58,6 +58,7 @@ public final class BacktrackingSolver {
 		if (!search.initialize()) {
 			return Optional.empty();
 		}
+		
 		if (!search.solve()) {
 			return Optional.empty();
 		}
@@ -82,6 +83,7 @@ public final class BacktrackingSolver {
 		if (cap < 1) {
 			throw new IllegalArgumentException("The solution cap must be at least 1, but is " + cap);
 		}
+		
 		Search search = new Search(puzzle);
 		if (!search.initialize()) {
 			return 0;
@@ -127,6 +129,7 @@ public final class BacktrackingSolver {
 				if (value == 0) {
 					continue;
 				}
+				
 				int bit = 1 << value;
 				int row = cellIndex / this.n;
 				int column = cellIndex % this.n;
@@ -134,6 +137,7 @@ public final class BacktrackingSolver {
 				if ((this.rowMasks[row] & bit) != 0 || (this.columnMasks[column] & bit) != 0 || (this.regionMasks[region] & bit) != 0) {
 					return false;
 				}
+				
 				this.rowMasks[row] |= bit;
 				this.columnMasks[column] |= bit;
 				this.regionMasks[region] |= bit;
@@ -146,6 +150,7 @@ public final class BacktrackingSolver {
 			if (cellIndex == this.cellCount) {
 				return true;
 			}
+			
 			int row = cellIndex / this.n;
 			int column = cellIndex % this.n;
 			int region = this.regionOf[cellIndex];
@@ -154,9 +159,11 @@ public final class BacktrackingSolver {
 				int bit = candidates & -candidates;
 				candidates &= candidates - 1;
 				this.place(cellIndex, bit, row, column, region);
+				
 				if (this.solve()) {
 					return true;
 				}
+				
 				this.remove(cellIndex, bit, row, column, region);
 			}
 			return false;
@@ -168,6 +175,7 @@ public final class BacktrackingSolver {
 				this.found++;
 				return this.found;
 			}
+			
 			int row = cellIndex / this.n;
 			int column = cellIndex % this.n;
 			int region = this.regionOf[cellIndex];
@@ -197,6 +205,7 @@ public final class BacktrackingSolver {
 				if (this.values[cellIndex] != 0) {
 					continue;
 				}
+				
 				int row = cellIndex / this.n;
 				int column = cellIndex % this.n;
 				int region = this.regionOf[cellIndex];
@@ -204,8 +213,9 @@ public final class BacktrackingSolver {
 				if (count < bestCount) {
 					bestCount = count;
 					best = cellIndex;
+					
 					if (count <= 1) {
-						break;
+						return best;
 					}
 				}
 			}

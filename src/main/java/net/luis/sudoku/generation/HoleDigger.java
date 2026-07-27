@@ -84,18 +84,21 @@ public final class HoleDigger {
 		if (maxHoles < 0) {
 			throw new IllegalArgumentException("The maximum number of holes must not be negative, but is " + maxHoles);
 		}
+		
 		for (int cellIndex = 0; cellIndex < cellCount; cellIndex++) {
 			int value = solution[cellIndex];
 			if (!size.isValidDigit(value)) {
 				throw new IllegalArgumentException("Solution value " + value + " at cell " + cellIndex + " is not in 1.." + size.n());
 			}
 		}
+		
 		// Every value is a legal digit at this point, so ofGivens cannot throw here; isSolved rejects a grid that
 		// is not complete-and-valid, i.e. one carrying a duplicate in some row, column or region.
 		Puzzle solved = Puzzle.ofGivens(size, Variant.CLASSIC, partition, solution);
 		if (!solved.isSolved()) {
 			throw new IllegalArgumentException("The given grid is not a valid complete solution");
 		}
+		
 		int[] working = solution.clone();
 		int[] order = random.shuffledRange(cellCount);
 		int dug = 0;
@@ -103,6 +106,7 @@ public final class HoleDigger {
 			if (dug >= maxHoles) {
 				break;
 			}
+			
 			int digit = working[cellIndex];
 			working[cellIndex] = 0;
 			// CLASSIC is arbitrary: only the partition drives region membership, and CLASSIC is legal at every size.

@@ -49,10 +49,12 @@ public final class Puzzle {
 		if (cells.length != size.cellCount()) {
 			throw new IllegalArgumentException("Expected " + size.cellCount() + " cells for grid size " + size + ", got " + cells.length);
 		}
+		
 		Cell[] copy = new Cell[cells.length];
 		for (int cellIndex = 0; cellIndex < cells.length; cellIndex++) {
 			copy[cellIndex] = Objects.requireNonNull(cells[cellIndex], "Cell " + cellIndex + " must not be null");
 		}
+		
 		this.size = size;
 		this.variant = variant;
 		this.partition = partition;
@@ -92,6 +94,7 @@ public final class Puzzle {
 		if (givens.length != size.cellCount()) {
 			throw new IllegalArgumentException("Expected " + size.cellCount() + " givens for grid size " + size + ", got " + givens.length);
 		}
+		
 		Cell[] cells = new Cell[givens.length];
 		for (int cellIndex = 0; cellIndex < givens.length; cellIndex++) {
 			int digit = givens[cellIndex];
@@ -99,6 +102,7 @@ public final class Puzzle {
 				cells[cellIndex] = new Cell();
 				continue;
 			}
+			
 			size.checkDigit(digit);
 			cells[cellIndex] = Cell.given(digit);
 		}
@@ -297,6 +301,7 @@ public final class Puzzle {
 		if (value == 0) {
 			return false;
 		}
+		
 		int n = this.size.n();
 		int row = this.size.rowOf(cellIndex);
 		int column = this.size.columnOf(cellIndex);
@@ -306,6 +311,7 @@ public final class Puzzle {
 				return true;
 			}
 		}
+		
 		Region region = this.partition.regionContaining(cellIndex);
 		for (int position = 0; position < region.size(); position++) {
 			if (this.isDuplicate(region.cell(position), cellIndex, value)) {
@@ -332,12 +338,14 @@ public final class Puzzle {
 		for (int regionIndex = 0; regionIndex < n; regionIndex++) {
 			this.markUnitConflicts(this.regionCells(regionIndex), conflicted);
 		}
+		
 		int count = 0;
 		for (boolean flag : conflicted) {
 			if (flag) {
 				count++;
 			}
 		}
+		
 		int[] indices = new int[count];
 		int position = 0;
 		for (int cellIndex = 0; cellIndex < conflicted.length; cellIndex++) {
@@ -400,6 +408,7 @@ public final class Puzzle {
 			if (value == 0) {
 				continue;
 			}
+			
 			int bit = 1 << value;
 			if ((seen & bit) != 0) {
 				return true;
@@ -417,15 +426,18 @@ public final class Puzzle {
 			if (value == 0) {
 				continue;
 			}
+			
 			int bit = 1 << value;
 			if ((seen & bit) != 0) {
 				duplicated |= bit;
 			}
 			seen |= bit;
 		}
+		
 		if (duplicated == 0) {
 			return;
 		}
+		
 		for (int cellIndex : unit) {
 			int value = this.cells[cellIndex].value();
 			if (value != 0 && (duplicated & (1 << value)) != 0) {
@@ -439,8 +451,7 @@ public final class Puzzle {
 		if (this == object) {
 			return true;
 		}
-		return object instanceof Puzzle puzzle && this.size == puzzle.size && this.variant == puzzle.variant
-			&& this.partition.equals(puzzle.partition) && Arrays.equals(this.cells, puzzle.cells);
+		return object instanceof Puzzle puzzle && this.size == puzzle.size && this.variant == puzzle.variant && this.partition.equals(puzzle.partition) && Arrays.equals(this.cells, puzzle.cells);
 	}
 	
 	@Override

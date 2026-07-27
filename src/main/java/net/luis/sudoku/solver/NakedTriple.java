@@ -41,18 +41,22 @@ public final class NakedTriple implements TechniqueStrategy {
 				if (!this.eligible(grid, unit[i])) {
 					continue;
 				}
+				
 				for (int j = i + 1; j < unit.length; j++) {
 					if (!this.eligible(grid, unit[j])) {
 						continue;
 					}
+					
 					for (int k = j + 1; k < unit.length; k++) {
 						if (!this.eligible(grid, unit[k])) {
 							continue;
 						}
+						
 						int union = grid.candidates(unit[i]) | grid.candidates(unit[j]) | grid.candidates(unit[k]);
 						if (Integer.bitCount(union) != 3) {
 							continue;
 						}
+						
 						Optional<Deduction> elimination = this.eliminate(grid, unit, union, unit[i], unit[j], unit[k]);
 						if (elimination.isPresent()) {
 							return elimination;
@@ -76,6 +80,7 @@ public final class NakedTriple implements TechniqueStrategy {
 			if (cell == first || cell == second || cell == third) {
 				continue;
 			}
+			
 			for (int digit = 1; digit <= grid.n(); digit++) {
 				if ((union & (1 << digit)) != 0 && grid.hasCandidate(cell, digit)) {
 					cells.add(cell);
@@ -83,6 +88,7 @@ public final class NakedTriple implements TechniqueStrategy {
 				}
 			}
 		}
+		
 		if (cells.isEmpty()) {
 			return Optional.empty();
 		}

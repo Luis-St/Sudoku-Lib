@@ -38,12 +38,14 @@ public final class HiddenSingle implements TechniqueStrategy {
 			for (int digit = 1; digit <= n; digit++) {
 				int seen = 0;
 				int target = -1;
+				
 				for (int cell : unit) {
 					if (grid.hasCandidate(cell, digit)) {
 						seen++;
 						target = cell;
 					}
 				}
+				
 				if (seen == 1) {
 					return Optional.of(new Deduction.Placement(Technique.HIDDEN_SINGLE, target, digit));
 				}

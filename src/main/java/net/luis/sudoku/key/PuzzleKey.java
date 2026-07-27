@@ -52,6 +52,7 @@ public record PuzzleKey(int genVersion, GridSize size, Variant variant, Difficul
 		if (genVersion < 1) {
 			throw new IllegalArgumentException("Generator version " + genVersion + " must be at least 1");
 		}
+		
 		variant.checkSupportedAt(size);
 	}
 	

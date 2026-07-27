@@ -78,11 +78,12 @@ public final class RegionGenerator {
 		Objects.requireNonNull(size, "Size must not be null");
 		Objects.requireNonNull(random, "Random must not be null");
 		Variant.CHAOS.checkSupportedAt(size);
+		
 		for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-			int[] solution = SolutionFiller.fill(ClassicRegionPartition.of(size), random).orElseThrow(
-				() -> new IllegalStateException("The classic layout must always be fillable"));
+			int[] solution = SolutionFiller.fill(ClassicRegionPartition.of(size), random).orElseThrow(() -> new IllegalStateException("The classic layout must always be fillable"));
 			int[] regionOf = jumble(size, solution, random);
 			RegionPartition partition = toPartition(size, regionOf);
+			
 			if (isDegenerate(size, partition)) {
 				continue;
 			}
@@ -105,6 +106,7 @@ public final class RegionGenerator {
 			regionOf[cell] = region;
 			regionDigits[region] |= 1 << solution[cell];
 		}
+		
 		int target = SWAPS_PER_CELL * cellCount;
 		int accepted = 0;
 		int attempts = 0;
@@ -119,15 +121,18 @@ public final class RegionGenerator {
 			if (regionA == regionB) {
 				continue;
 			}
+			
 			int fromB = boundaryCell(size, regionOf, regionB, regionA, random, neighborBuffer);
 			if (fromB == -1) {
 				continue;
 			}
+			
 			int bitA = 1 << solution[fromA];
 			int bitB = 1 << solution[fromB];
 			if (((regionDigits[regionA] & ~bitA) & bitB) != 0 || ((regionDigits[regionB] & ~bitB) & bitA) != 0) {
 				continue;
 			}
+			
 			regionOf[fromA] = regionB;
 			regionOf[fromB] = regionA;
 			if (isConnected(size, regionOf, regionA) && isConnected(size, regionOf, regionB)) {

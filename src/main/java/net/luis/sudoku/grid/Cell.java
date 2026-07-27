@@ -171,10 +171,12 @@ public final class Cell {
 	public boolean addPencilMark(int digit) {
 		this.checkNotGiven("add a pencil mark to");
 		checkDigit(digit);
+		
 		int bit = 1 << digit;
 		if ((this.pencilMarks & bit) != 0) {
 			return false;
 		}
+		
 		this.pencilMarks |= bit;
 		return true;
 	}
@@ -188,10 +190,12 @@ public final class Cell {
 	 */
 	public boolean removePencilMark(int digit) {
 		checkDigit(digit);
+		
 		int bit = 1 << digit;
 		if ((this.pencilMarks & bit) == 0) {
 			return false;
 		}
+		
 		this.pencilMarks &= ~bit;
 		return true;
 	}
@@ -207,6 +211,7 @@ public final class Cell {
 	public boolean togglePencilMark(int digit) {
 		this.checkNotGiven("toggle a pencil mark on");
 		checkDigit(digit);
+		
 		this.pencilMarks ^= 1 << digit;
 		return (this.pencilMarks & (1 << digit)) != 0;
 	}
@@ -234,6 +239,7 @@ public final class Cell {
 	 */
 	public int[] pencilMarkDigits() {
 		int[] digits = new int[Integer.bitCount(this.pencilMarks)];
+		
 		int count = 0;
 		for (int digit = 1; digit <= MAX_DIGIT; digit++) {
 			if ((this.pencilMarks & (1 << digit)) != 0) {

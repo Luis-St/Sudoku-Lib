@@ -29,9 +29,9 @@ import java.util.Objects;
  *     <caption>The 15-byte puzzle key encoding</caption>
  *     <tr><th>Offset</th><th>Length</th><th>Content</th></tr>
  *     <tr><td>0</td><td>4</td><td>{@link PuzzleKey#genVersion()} as a big-endian {@code int}</td></tr>
- *     <tr><td>4</td><td>1</td><td>{@link net.luis.sudoku.grid.GridSize#n()}, one of {@code 4, 6, 9, 12, 16}</td></tr>
- *     <tr><td>5</td><td>1</td><td>{@link net.luis.sudoku.grid.Variant#ordinal()}, {@code CLASSIC = 0}, {@code CHAOS = 1}</td></tr>
- *     <tr><td>6</td><td>1</td><td>{@link net.luis.sudoku.difficulty.Difficulty#index()}, {@code 1..6}</td></tr>
+ *     <tr><td>4</td><td>1</td><td>{@link GridSize#n()}, one of {@code 4, 6, 9, 12, 16}</td></tr>
+ *     <tr><td>5</td><td>1</td><td>{@link Variant#ordinal()}, {@code CLASSIC = 0}, {@code CHAOS = 1}</td></tr>
+ *     <tr><td>6</td><td>1</td><td>{@link Difficulty#index()}, {@code 1..6}</td></tr>
  *     <tr><td>7</td><td>8</td><td>{@link PuzzleKey#seed()} as a big-endian {@code long}</td></tr>
  * </table>
  * <p>
@@ -70,6 +70,7 @@ public final class KeyDerivation {
 	 */
 	public static byte[] sha256(byte[] input) {
 		Objects.requireNonNull(input, "Input must not be null");
+		
 		try {
 			return MessageDigest.getInstance(DIGEST_ALGORITHM).digest(input);
 		} catch (NoSuchAlgorithmException e) {
@@ -98,6 +99,7 @@ public final class KeyDerivation {
 		if (digest.length % Long.BYTES != 0) {
 			throw new IllegalArgumentException("Digest length " + digest.length + " is not a multiple of " + Long.BYTES);
 		}
+		
 		ByteBuffer buffer = ByteBuffer.wrap(digest);
 		long folded = 0;
 		while (buffer.hasRemaining()) {
@@ -146,6 +148,7 @@ public final class KeyDerivation {
 		if (encoded.length != ENCODED_LENGTH) {
 			throw new IllegalArgumentException("Encoded key must be " + ENCODED_LENGTH + " bytes, but was " + encoded.length);
 		}
+		
 		ByteBuffer buffer = ByteBuffer.wrap(encoded);
 		int genVersion = buffer.getInt();
 		int edgeLength = buffer.get() & 0xFF;

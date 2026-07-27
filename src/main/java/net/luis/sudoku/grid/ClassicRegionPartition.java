@@ -37,12 +37,14 @@ public final class ClassicRegionPartition {
 		int boxesPerRow = n / boxWidth;
 		int[][] cells = new int[n][n];
 		int[] filled = new int[n];
+		
 		for (int row = 0; row < n; row++) {
 			for (int column = 0; column < n; column++) {
 				int regionIndex = row / boxHeight * boxesPerRow + column / boxWidth;
 				cells[regionIndex][filled[regionIndex]++] = row * n + column;
 			}
 		}
+		
 		List<Region> regions = new ArrayList<>(n);
 		for (int regionIndex = 0; regionIndex < n; regionIndex++) {
 			regions.add(new Region(cells[regionIndex]));

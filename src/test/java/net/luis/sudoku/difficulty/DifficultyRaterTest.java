@@ -33,8 +33,7 @@ class DifficultyRaterTest {
 			for (long seed = 0; seed < 5; seed++) {
 				GeneratedPuzzle generated = PuzzleGenerator.generate(PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, requested, seed));
 				
-				assertNotEquals(Difficulty.LISA, RATER.rate(generated.puzzle()),
-					"Rater must return a numbered band for " + requested + " seed " + seed);
+				assertNotEquals(Difficulty.LISA, RATER.rate(generated.puzzle()), "Rater must return a numbered band for " + requested + " seed " + seed);
 			}
 		}
 	}

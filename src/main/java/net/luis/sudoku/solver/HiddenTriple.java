@@ -43,20 +43,24 @@ public final class HiddenTriple implements TechniqueStrategy {
 				if (maskA == 0) {
 					continue;
 				}
+				
 				for (int b = a + 1; b <= n; b++) {
 					int maskB = this.cellsWith(grid, unit, b);
 					if (maskB == 0) {
 						continue;
 					}
+					
 					for (int c = b + 1; c <= n; c++) {
 						int maskC = this.cellsWith(grid, unit, c);
 						if (maskC == 0) {
 							continue;
 						}
+						
 						int union = maskA | maskB | maskC;
 						if (Integer.bitCount(union) != 3) {
 							continue;
 						}
+						
 						int keep = (1 << a) | (1 << b) | (1 << c);
 						Optional<Deduction> elimination = this.eliminate(grid, unit, union, keep);
 						if (elimination.isPresent()) {

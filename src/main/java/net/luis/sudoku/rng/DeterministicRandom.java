@@ -102,10 +102,12 @@ public final class DeterministicRandom {
 		if (origin >= bound) {
 			throw new IllegalArgumentException("Origin " + origin + " must be less than bound " + bound);
 		}
+		
 		long span = (long) bound - origin;
 		if (span <= Integer.MAX_VALUE) {
 			return origin + this.nextInt((int) span);
 		}
+		
 		int value;
 		do {
 			value = this.random.nextInt();
@@ -168,10 +170,12 @@ public final class DeterministicRandom {
 		if (size < 0) {
 			throw new IllegalArgumentException("Size " + size + " must not be negative");
 		}
+		
 		int[] values = new int[size];
 		for (int i = 0; i < size; i++) {
 			values[i] = i;
 		}
+		
 		this.shuffle(values);
 		return values;
 	}

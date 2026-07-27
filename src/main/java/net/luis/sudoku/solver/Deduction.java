@@ -83,12 +83,14 @@ public sealed interface Deduction permits Deduction.Placement, Deduction.Elimina
 			Objects.requireNonNull(technique, "Technique must not be null");
 			Objects.requireNonNull(cells, "Cells must not be null");
 			Objects.requireNonNull(digits, "Digits must not be null");
+			
 			if (cells.length != digits.length) {
 				throw new IllegalArgumentException("Cells and digits must have equal length, but were " + cells.length + " and " + digits.length);
 			}
 			if (cells.length == 0) {
 				throw new IllegalArgumentException("An eliminations deduction must remove at least one candidate");
 			}
+			
 			cells = cells.clone();
 			digits = digits.clone();
 		}
@@ -133,8 +135,7 @@ public sealed interface Deduction permits Deduction.Placement, Deduction.Elimina
 			if (this == object) {
 				return true;
 			}
-			return object instanceof Eliminations other && this.technique == other.technique
-				&& Arrays.equals(this.cells, other.cells) && Arrays.equals(this.digits, other.digits);
+			return object instanceof Eliminations other && this.technique == other.technique && Arrays.equals(this.cells, other.cells) && Arrays.equals(this.digits, other.digits);
 		}
 		
 		@Override

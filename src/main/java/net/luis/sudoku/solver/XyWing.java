@@ -41,17 +41,20 @@ public final class XyWing implements TechniqueStrategy {
 			if (grid.candidateCount(pivot) != 2) {
 				continue;
 			}
+			
 			int pivotMask = grid.candidates(pivot);
 			int[] peers = grid.peers(pivot);
 			for (int wingA : peers) {
 				if (grid.candidateCount(wingA) != 2) {
 					continue;
 				}
+				
 				int maskA = grid.candidates(wingA);
 				int shared = maskA & pivotMask;
 				if (Integer.bitCount(shared) != 1) {
 					continue;
 				}
+				
 				int z = maskA & ~pivotMask;
 				int otherPivot = pivotMask & ~shared;
 				int wantB = otherPivot | z;
@@ -59,6 +62,7 @@ public final class XyWing implements TechniqueStrategy {
 					if (wingB == wingA || grid.candidates(wingB) != wantB) {
 						continue;
 					}
+					
 					int zDigit = Integer.numberOfTrailingZeros(z);
 					Optional<Deduction> elimination = this.eliminate(grid, pivot, wingA, wingB, zDigit);
 					if (elimination.isPresent()) {
@@ -77,11 +81,13 @@ public final class XyWing implements TechniqueStrategy {
 			if (cell == pivot || cell == wingA || cell == wingB) {
 				continue;
 			}
+			
 			if (grid.peers(cell, wingA) && grid.peers(cell, wingB) && grid.hasCandidate(cell, zDigit)) {
 				cells.add(cell);
 				digits.add(zDigit);
 			}
 		}
+		
 		if (cells.isEmpty()) {
 			return Optional.empty();
 		}

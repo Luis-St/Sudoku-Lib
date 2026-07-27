@@ -1,6 +1,8 @@
 package net.luis.sudoku.difficulty;
 
+import net.luis.sudoku.generation.PuzzleGenerator;
 import net.luis.sudoku.grid.*;
+import net.luis.sudoku.key.PuzzleKey;
 import net.luis.sudoku.solver.TechniqueReport;
 import net.luis.sudoku.solver.TechniqueSolver;
 import org.junit.jupiter.api.Test;
@@ -28,8 +30,8 @@ class DifficultyBandsTest {
 	 */
 	private static TechniqueReport stuckNineReport() {
 		for (long seed = 0; seed < 200; seed++) {
-			var key = net.luis.sudoku.key.PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, Difficulty.FIVE, seed);
-			var puzzle = net.luis.sudoku.generation.PuzzleGenerator.generate(key).puzzle();
+			var key = PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, Difficulty.FIVE, seed);
+			var puzzle = PuzzleGenerator.generate(key).puzzle();
 			TechniqueReport report = TechniqueSolver.solve(puzzle);
 			if (report.stuck()) {
 				return report;

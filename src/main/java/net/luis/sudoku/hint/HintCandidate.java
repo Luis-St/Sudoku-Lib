@@ -1,5 +1,6 @@
 package net.luis.sudoku.hint;
 
+import net.luis.sudoku.grid.Puzzle;
 import net.luis.sudoku.solver.Technique;
 
 import java.util.Objects;
@@ -10,13 +11,13 @@ import java.util.Objects;
  * <p>
  *     This mirrors §4.4's first tap — the engine highlights a cell that is solvable from the information already on the
  *     board without revealing the answer. The digit is withheld until the candidate is passed back to
- *     {@link HintEngine#consume(net.luis.sudoku.grid.Puzzle, HintCandidate)} for the second tap.
+ *     {@link HintEngine#consume(Puzzle, HintCandidate)} for the second tap.
  * </p>
  *
  * @param cellIndex The row-major index of the cell the hint points at
  * @param technique The technique that makes the cell solvable
  *
- * @see HintEngine#peek(net.luis.sudoku.grid.Puzzle)
+ * @see HintEngine#peek(Puzzle)
  */
 public record HintCandidate(int cellIndex, Technique technique) {
 	

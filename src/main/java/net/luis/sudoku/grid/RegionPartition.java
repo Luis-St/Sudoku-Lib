@@ -39,6 +39,7 @@ public final class RegionPartition {
 		if (regions.size() != n) {
 			throw new IllegalArgumentException("Expected " + n + " regions for grid size " + size + ", got " + regions.size());
 		}
+		
 		int[] lookup = new int[size.cellCount()];
 		Arrays.fill(lookup, -1);
 		for (int regionIndex = 0; regionIndex < n; regionIndex++) {
@@ -46,9 +47,11 @@ public final class RegionPartition {
 			if (region.size() != n) {
 				throw new IllegalArgumentException("Region " + regionIndex + " must contain " + n + " cells, but contains " + region.size());
 			}
+			
 			for (int position = 0; position < n; position++) {
 				int cellIndex = region.cell(position);
 				size.checkCellIndex(cellIndex);
+				
 				if (lookup[cellIndex] != -1) {
 					throw new IllegalArgumentException("Cell " + cellIndex + " belongs to region " + lookup[cellIndex] + " and region " + regionIndex);
 				}
@@ -60,6 +63,7 @@ public final class RegionPartition {
 				throw new IllegalArgumentException("Cell " + cellIndex + " belongs to no region");
 			}
 		}
+		
 		this.size = size;
 		this.regions = List.copyOf(regions);
 		this.regionOf = lookup;

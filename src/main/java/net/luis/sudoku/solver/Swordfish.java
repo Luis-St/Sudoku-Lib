@@ -67,22 +67,27 @@ public final class Swordfish implements TechniqueStrategy {
 			for (int base = 0; base < n; base++) {
 				lineMasks[base] = this.lineMask(grid, rowForm, base, digit);
 			}
+			
 			for (int base1 = 0; base1 < n; base1++) {
 				if (!this.eligible(lineMasks[base1])) {
 					continue;
 				}
+				
 				for (int base2 = base1 + 1; base2 < n; base2++) {
 					if (!this.eligible(lineMasks[base2])) {
 						continue;
 					}
+					
 					for (int base3 = base2 + 1; base3 < n; base3++) {
 						if (!this.eligible(lineMasks[base3])) {
 							continue;
 						}
+						
 						int union = lineMasks[base1] | lineMasks[base2] | lineMasks[base3];
 						if (Integer.bitCount(union) != 3) {
 							continue;
 						}
+						
 						int count = 0;
 						int covers = union;
 						while (covers != 0) {
@@ -91,6 +96,7 @@ public final class Swordfish implements TechniqueStrategy {
 							int[] coverCells = rowForm ? grid.columnCells(cover) : grid.rowCells(cover);
 							for (int cell : coverCells) {
 								int base = rowForm ? grid.rowOf(cell) : grid.columnOf(cell);
+								
 								if (base != base1 && base != base2 && base != base3 && grid.hasCandidate(cell, digit)) {
 									cells[count] = cell;
 									digits[count] = digit;
@@ -98,6 +104,7 @@ public final class Swordfish implements TechniqueStrategy {
 								}
 							}
 						}
+						
 						if (count > 0) {
 							int[] resultCells = Arrays.copyOf(cells, count);
 							int[] resultDigits = Arrays.copyOf(digits, count);

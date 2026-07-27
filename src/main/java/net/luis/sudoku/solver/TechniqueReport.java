@@ -36,6 +36,7 @@ public final class TechniqueReport {
 		this.stuck = stuck;
 		this.solution = solution.clone();
 		this.usage = new EnumMap<>(Technique.class);
+		
 		for (Map.Entry<Technique, Integer> entry : usage.entrySet()) {
 			if (entry.getValue() != 0) {
 				this.usage.put(entry.getKey(), entry.getValue());

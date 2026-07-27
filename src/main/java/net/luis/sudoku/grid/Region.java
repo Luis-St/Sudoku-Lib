@@ -31,11 +31,13 @@ public record Region(int... cells) {
 		if (cells.length == 0) {
 			throw new IllegalArgumentException("A region must contain at least one cell");
 		}
+		
 		int[] sorted = cells.clone();
 		Arrays.sort(sorted);
 		if (sorted[0] < 0) {
 			throw new IllegalArgumentException("Cell index " + sorted[0] + " is negative");
 		}
+		
 		for (int i = 1; i < sorted.length; i++) {
 			if (sorted[i] == sorted[i - 1]) {
 				throw new IllegalArgumentException("Cell index " + sorted[i] + " appears more than once in the region");

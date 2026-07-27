@@ -48,6 +48,7 @@ public final class BoxLineReduction implements TechniqueStrategy {
 				return found;
 			}
 		}
+		
 		for (int column = 0; column < n; column++) {
 			Optional<Deduction> found = this.scanLine(grid, grid.columnCells(column));
 			if (found.isPresent()) {
@@ -76,17 +77,20 @@ public final class BoxLineReduction implements TechniqueStrategy {
 				if (!grid.hasCandidate(cell, digit)) {
 					continue;
 				}
+				
 				int cellRegion = grid.regionOf(cell);
 				if (seen == 0) {
 					region = cellRegion;
 				} else {
 					sameRegion &= cellRegion == region;
 				}
+				
 				seen++;
 			}
 			if (seen < 2 || !sameRegion) {
 				continue;
 			}
+			
 			int count = 0;
 			for (int cell : grid.regionCells(region)) {
 				if (!this.inLine(lineCells, cell) && grid.hasCandidate(cell, digit)) {
@@ -95,6 +99,7 @@ public final class BoxLineReduction implements TechniqueStrategy {
 					count++;
 				}
 			}
+			
 			if (count > 0) {
 				return Optional.of(new Deduction.Eliminations(Technique.BOX_LINE_REDUCTION, Arrays.copyOf(cells, count), Arrays.copyOf(digits, count)));
 			}

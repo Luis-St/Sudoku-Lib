@@ -43,6 +43,7 @@ public record GeneratedPuzzle(PuzzleKey key, Puzzle puzzle, int[] solution) {
 		Objects.requireNonNull(key, "Key must not be null");
 		Objects.requireNonNull(puzzle, "Puzzle must not be null");
 		Objects.requireNonNull(solution, "Solution must not be null");
+		
 		if (solution.length != key.size().cellCount()) {
 			throw new IllegalArgumentException("Expected " + key.size().cellCount() + " solution cells for grid size " + key.size() + ", got " + solution.length);
 		}
@@ -80,8 +81,7 @@ public record GeneratedPuzzle(PuzzleKey key, Puzzle puzzle, int[] solution) {
 		if (this == object) {
 			return true;
 		}
-		return object instanceof GeneratedPuzzle other && this.key.equals(other.key) && this.puzzle.equals(other.puzzle)
-			&& Arrays.equals(this.solution, other.solution);
+		return object instanceof GeneratedPuzzle other && this.key.equals(other.key) && this.puzzle.equals(other.puzzle) && Arrays.equals(this.solution, other.solution);
 	}
 	
 	@Override
