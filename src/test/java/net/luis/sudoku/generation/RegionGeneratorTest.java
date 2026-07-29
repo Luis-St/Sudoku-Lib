@@ -46,17 +46,21 @@ class RegionGeneratorTest {
 		return reached == cells.length;
 	}
 	
-	private static boolean isFullLine(GridSize size, Region region) {
+	/** True when the region exactly fills its bounding box - a full row and a full column are the 1-wide cases. */
+	private static boolean isRectangular(GridSize size, Region region) {
 		int n = size.n();
-		boolean sameRow = true;
-		boolean sameColumn = true;
-		int firstRow = region.cell(0) / n;
-		int firstColumn = region.cell(0) % n;
-		for (int position = 1; position < region.size(); position++) {
-			sameRow &= region.cell(position) / n == firstRow;
-			sameColumn &= region.cell(position) % n == firstColumn;
+		int minRow = Integer.MAX_VALUE;
+		int maxRow = Integer.MIN_VALUE;
+		int minColumn = Integer.MAX_VALUE;
+		int maxColumn = Integer.MIN_VALUE;
+		for (int position = 0; position < region.size(); position++) {
+			int cell = region.cell(position);
+			minRow = Math.min(minRow, cell / n);
+			maxRow = Math.max(maxRow, cell / n);
+			minColumn = Math.min(minColumn, cell % n);
+			maxColumn = Math.max(maxColumn, cell % n);
 		}
-		return sameRow || sameColumn;
+		return (maxRow - minRow + 1) * (maxColumn - minColumn + 1) == region.size();
 	}
 	
 	private static boolean solves(GridSize size, RegionPartition partition, int[] solution) {
@@ -88,12 +92,13 @@ class RegionGeneratorTest {
 	
 	@Test
 	@Timeout(value = 120, unit = TimeUnit.SECONDS)
-	void generateChaos_everySupportedSize_hasNoFullRowOrColumnRegionAndIsFillable() {
+	void generateChaos_everySupportedSize_hasNoRectangularRegionAndIsFillable() {
 		for (GridSize size : CHAOS_SIZES) {
 			RegionGenerator.ChaosLayout layout = RegionGenerator.generateChaosLayout(size, new DeterministicRandom(777L));
-			
+
 			for (Region region : layout.partition().regions()) {
-				assertFalse(isFullLine(size, region), "A region is a full row or column for " + size);
+				// Covers full rows and columns (the 1-wide rectangles) as well as classic box shapes.
+				assertFalse(isRectangular(size, region), "A region is a plain rectangle for " + size);
 			}
 			// Fillability is guaranteed by construction: the layout carries a solution valid under the partition.
 			// Confirm that solution really is a completion — every region holds 1..n exactly once, and rows/columns
