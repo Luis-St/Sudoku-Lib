@@ -13,14 +13,14 @@ import static org.junit.jupiter.api.Assertions.*;
 class HiddenTripleTest {
 	
 	/**
-	 * A generated, uniquely solvable 9x9 puzzle in whose fresh candidate grid a hidden triple removes the digit 7
-	 * from cell 60.
+	 * A generated, uniquely solvable 9x9 puzzle in whose fresh candidate grid a hidden triple removes the digit 5
+	 * from cells 67 and 68 and the digit 3 from cell 75.
 	 */
 	private static final String[] TRIPLE_PRESENT = {
 		"060548002", "000030050", "000000000", "401000500", "000900004", "000070800", "028001069", "003400000", "500087000"
 	};
-	private static final int[] EXPECTED_CELLS = { 60 };
-	private static final int[] EXPECTED_DIGITS = { 7 };
+	private static final int[] EXPECTED_CELLS = { 67, 68, 75 };
+	private static final int[] EXPECTED_DIGITS = { 5, 5, 3 };
 	
 	private static int[] parse(String[] rows) {
 		int[] values = new int[81];
@@ -73,7 +73,9 @@ class HiddenTripleTest {
 		
 		assertAll(
 			() -> assertTrue(changed),
-			() -> assertFalse(grid.hasCandidate(60, 7))
+			() -> assertFalse(grid.hasCandidate(67, 5)),
+			() -> assertFalse(grid.hasCandidate(68, 5)),
+			() -> assertFalse(grid.hasCandidate(75, 3))
 		);
 	}
 	

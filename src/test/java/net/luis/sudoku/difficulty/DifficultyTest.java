@@ -10,9 +10,11 @@ import static org.junit.jupiter.api.Assertions.*;
 class DifficultyTest {
 	
 	@Test
-	void values_allConstants_areTheFiveTiersPlusLisa() {
+	void values_allConstants_areTheFourteenTiersPlusLisa() {
 		assertArrayEquals(new Difficulty[] {
-			Difficulty.ONE, Difficulty.TWO, Difficulty.THREE, Difficulty.FOUR, Difficulty.FIVE, Difficulty.LISA
+			Difficulty.ONE, Difficulty.TWO, Difficulty.THREE, Difficulty.FOUR, Difficulty.FIVE, Difficulty.SIX,
+			Difficulty.SEVEN, Difficulty.EIGHT, Difficulty.NINE, Difficulty.TEN, Difficulty.ELEVEN, Difficulty.TWELVE,
+			Difficulty.THIRTEEN, Difficulty.FOURTEEN, Difficulty.LISA
 		}, Difficulty.values());
 	}
 	
@@ -29,7 +31,7 @@ class DifficultyTest {
 		assertAll(
 			() -> assertSame(Difficulty.ONE, Difficulty.valueOf("ONE")),
 			() -> assertSame(Difficulty.LISA, Difficulty.valueOf("LISA")),
-			() -> assertThrows(IllegalArgumentException.class, () -> Difficulty.valueOf("SIX"))
+			() -> assertThrows(IllegalArgumentException.class, () -> Difficulty.valueOf("SIXTEEN"))
 		);
 	}
 	
@@ -37,18 +39,17 @@ class DifficultyTest {
 	void index_everyConstant_returnsItsDeclaredIndex() {
 		assertAll(
 			() -> assertEquals(1, Difficulty.ONE.index()),
-			() -> assertEquals(2, Difficulty.TWO.index()),
-			() -> assertEquals(3, Difficulty.THREE.index()),
-			() -> assertEquals(4, Difficulty.FOUR.index()),
 			() -> assertEquals(5, Difficulty.FIVE.index()),
-			() -> assertEquals(6, Difficulty.LISA.index())
+			() -> assertEquals(10, Difficulty.TEN.index()),
+			() -> assertEquals(14, Difficulty.FOURTEEN.index()),
+			() -> assertEquals(15, Difficulty.LISA.index())
 		);
 	}
 	
 	@Test
-	void index_everyConstant_isInOneToSix() {
+	void index_everyConstant_isInOneToFifteen() {
 		for (Difficulty difficulty : Difficulty.values()) {
-			assertTrue(difficulty.index() >= 1 && difficulty.index() <= 6, difficulty + " index " + difficulty.index());
+			assertTrue(difficulty.index() >= 1 && difficulty.index() <= 15, difficulty + " index " + difficulty.index());
 		}
 	}
 	
@@ -56,19 +57,18 @@ class DifficultyTest {
 	void ofIndex_everyValidIndex_returnsTheMatchingConstant() {
 		assertAll(
 			() -> assertSame(Difficulty.ONE, Difficulty.ofIndex(1)),
-			() -> assertSame(Difficulty.TWO, Difficulty.ofIndex(2)),
-			() -> assertSame(Difficulty.THREE, Difficulty.ofIndex(3)),
-			() -> assertSame(Difficulty.FOUR, Difficulty.ofIndex(4)),
 			() -> assertSame(Difficulty.FIVE, Difficulty.ofIndex(5)),
-			() -> assertSame(Difficulty.LISA, Difficulty.ofIndex(6))
+			() -> assertSame(Difficulty.TEN, Difficulty.ofIndex(10)),
+			() -> assertSame(Difficulty.FOURTEEN, Difficulty.ofIndex(14)),
+			() -> assertSame(Difficulty.LISA, Difficulty.ofIndex(15))
 		);
 	}
 	
 	@Test
-	void ofIndex_zeroOrSeven_throws() {
+	void ofIndex_zeroOrSixteen_throws() {
 		assertAll(
 			() -> assertThrows(IllegalArgumentException.class, () -> Difficulty.ofIndex(0)),
-			() -> assertThrows(IllegalArgumentException.class, () -> Difficulty.ofIndex(7))
+			() -> assertThrows(IllegalArgumentException.class, () -> Difficulty.ofIndex(16))
 		);
 	}
 	
@@ -103,13 +103,11 @@ class DifficultyTest {
 	
 	@Test
 	void isLisa_numberedTiers_returnsFalse() {
-		assertAll(
-			() -> assertFalse(Difficulty.ONE.isLisa()),
-			() -> assertFalse(Difficulty.TWO.isLisa()),
-			() -> assertFalse(Difficulty.THREE.isLisa()),
-			() -> assertFalse(Difficulty.FOUR.isLisa()),
-			() -> assertFalse(Difficulty.FIVE.isLisa())
-		);
+		for (Difficulty difficulty : Difficulty.values()) {
+			if (difficulty != Difficulty.LISA) {
+				assertFalse(difficulty.isLisa(), difficulty.toString());
+			}
+		}
 	}
 	
 	@Test
@@ -119,13 +117,11 @@ class DifficultyTest {
 	
 	@Test
 	void isAllowedInMultiplayer_numberedTiers_returnsTrue() {
-		assertAll(
-			() -> assertTrue(Difficulty.ONE.isAllowedInMultiplayer()),
-			() -> assertTrue(Difficulty.TWO.isAllowedInMultiplayer()),
-			() -> assertTrue(Difficulty.THREE.isAllowedInMultiplayer()),
-			() -> assertTrue(Difficulty.FOUR.isAllowedInMultiplayer()),
-			() -> assertTrue(Difficulty.FIVE.isAllowedInMultiplayer())
-		);
+		for (Difficulty difficulty : Difficulty.values()) {
+			if (difficulty != Difficulty.LISA) {
+				assertTrue(difficulty.isAllowedInMultiplayer(), difficulty.toString());
+			}
+		}
 	}
 	
 	@Test

@@ -20,6 +20,7 @@ public final class TechniqueReport {
 	
 	private final boolean solved;
 	private final boolean stuck;
+	private final boolean exceededCap;
 	private final int[] solution;
 	private final EnumMap<Technique, Integer> usage;
 	
@@ -28,12 +29,14 @@ public final class TechniqueReport {
 	 *
 	 * @param solved Whether the grid was fully solved by techniques alone
 	 * @param stuck Whether the solver ran out of applicable techniques before solving
+	 * @param exceededCap Whether the solver ran out only because a level cap hid the harder techniques from it
 	 * @param solution The final grid values, solved or furthest-progressed
 	 * @param usage How many times each technique fired; techniques that never fired may be absent
 	 */
-	TechniqueReport(boolean solved, boolean stuck, int[] solution, Map<Technique, Integer> usage) {
+	TechniqueReport(boolean solved, boolean stuck, boolean exceededCap, int[] solution, Map<Technique, Integer> usage) {
 		this.solved = solved;
 		this.stuck = stuck;
+		this.exceededCap = exceededCap;
 		this.solution = solution.clone();
 		this.usage = new EnumMap<>(Technique.class);
 		
@@ -61,6 +64,22 @@ public final class TechniqueReport {
 	 */
 	public boolean stuck() {
 		return this.stuck;
+	}
+	
+	/**
+	 * Returns whether the solver stopped only because it was run under a level cap that hid the harder techniques
+	 * from it, meaning the puzzle's true rating is <b>above</b> that cap but by an unknown amount.
+	 * <p>
+	 *     This is the early-abort signal of {@link TechniqueSolver#solve(Puzzle, int)}: it is enough to steer a
+	 *     search that only needs a direction, but such a report carries no usable rating and must never be
+	 *     classified. An uncapped solve never sets it, so {@link #stuck()} keeps its meaning of "beyond the whole
+	 *     modelled technique set".
+	 * </p>
+	 *
+	 * @return True if the solver gave up at the cap rather than at the end of the technique set
+	 */
+	public boolean exceededCap() {
+		return this.exceededCap;
 	}
 	
 	/**
@@ -106,6 +125,23 @@ public final class TechniqueReport {
 			}
 		}
 		return Optional.ofNullable(hardest);
+	}
+	
+	/**
+	 * Returns the path score of this solve: every deduction's {@link Technique#score()}, summed.
+	 * <p>
+	 *     This measures how much non-routine work the puzzle demanded, as opposed to how hard its single hardest step
+	 *     was. The two together are the rating; see {@link net.luis.sudoku.difficulty.DifficultyBands}.
+	 * </p>
+	 *
+	 * @return The summed score, {@code 0} for a puzzle that needed nothing beyond singles
+	 */
+	public int pathScore() {
+		int score = 0;
+		for (Map.Entry<Technique, Integer> entry : this.usage.entrySet()) {
+			score += entry.getKey().score() * entry.getValue();
+		}
+		return score;
 	}
 	
 	/**

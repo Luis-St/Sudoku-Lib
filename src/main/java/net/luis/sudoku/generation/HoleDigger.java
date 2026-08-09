@@ -4,6 +4,8 @@ import net.luis.sudoku.grid.*;
 import net.luis.sudoku.rng.DeterministicRandom;
 import net.luis.sudoku.solver.BacktrackingSolver;
 
+import java.util.Arrays;
+
 /**
  * Digs holes into a complete solution grid, producing a puzzle whose only solution is that very grid.
  * <p>
@@ -76,10 +78,44 @@ public final class HoleDigger {
 	 * @throws NullPointerException If the partition, the solution or the random is null
 	 */
 	public static int[] dig(RegionPartition partition, int[] solution, DeterministicRandom random, int maxHoles) {
+		int[] order = random.shuffledRange(partition.size().cellCount());
+		int[] trace = digTrace(partition, solution, order, maxHoles);
+		return withHoles(solution, trace, trace.length);
+	}
+	
+	/**
+	 * Walks the given cell order once and returns the cells it managed to blank, in the order it blanked them.
+	 * <p>
+	 *     This is the digging loop itself, separated from the choice of order so a caller can dig <b>one</b> walk and
+	 *     then read several hole budgets off it. That works because the walk is prefix-consistent: whether a cell can
+	 *     be blanked depends only on the cells blanked before it, so stopping the walk after {@code k} successful
+	 *     removals produces exactly the first {@code k} entries of the full trace. A search over the hole budget can
+	 *     therefore take {@link #withHoles} slices of a single trace instead of re-digging — and re-proving
+	 *     uniqueness for every cell — once per budget.
+	 * </p>
+	 * <p>
+	 *     Passing the order in also keeps a budget search <b>honest</b>. Drawing a fresh order per budget would mean
+	 *     comparing puzzles that share nothing but a hole count, which destroys the monotonicity ("sparser is
+	 *     harder") that such a search relies on.
+	 * </p>
+	 *
+	 * @param partition The region partition the solution is laid out on
+	 * @param solution The complete row-major solution grid, every value in {@code 1..n}
+	 * @param order The cell visit order, a permutation of {@code 0..cellCount-1}
+	 * @param maxHoles The maximum number of holes to dig
+	 * @return The blanked cell indices in acceptance order, at most {@code maxHoles} of them
+	 * @throws IllegalArgumentException If the solution or the order does not match the partition, if any value is
+	 *        outside {@code 1..n}, if the solution is not a valid complete grid, or if {@code maxHoles} is negative
+	 * @throws NullPointerException If the partition, the solution or the order is null
+	 */
+	public static int[] digTrace(RegionPartition partition, int[] solution, int[] order, int maxHoles) {
 		GridSize size = partition.size();
 		int cellCount = size.cellCount();
 		if (solution.length != cellCount) {
 			throw new IllegalArgumentException("Solution length " + solution.length + " does not match the " + cellCount + " cells of a " + size + " grid");
+		}
+		if (order.length != cellCount) {
+			throw new IllegalArgumentException("Order length " + order.length + " does not match the " + cellCount + " cells of a " + size + " grid");
 		}
 		if (maxHoles < 0) {
 			throw new IllegalArgumentException("The maximum number of holes must not be negative, but is " + maxHoles);
@@ -100,10 +136,10 @@ public final class HoleDigger {
 		}
 		
 		int[] working = solution.clone();
-		int[] order = random.shuffledRange(cellCount);
+		int[] trace = new int[Math.min(maxHoles, cellCount)];
 		int dug = 0;
 		for (int cellIndex : order) {
-			if (dug >= maxHoles) {
+			if (dug >= trace.length) {
 				break;
 			}
 			
@@ -112,11 +148,34 @@ public final class HoleDigger {
 			// CLASSIC is arbitrary: only the partition drives region membership, and CLASSIC is legal at every size.
 			Puzzle candidate = Puzzle.ofGivens(size, Variant.CLASSIC, partition, working);
 			if (BacktrackingSolver.countSolutions(candidate, 2) == 1) {
-				dug++;
+				trace[dug++] = cellIndex;
 			} else {
 				working[cellIndex] = digit;
 			}
 		}
-		return working;
+		return dug == trace.length ? trace : Arrays.copyOf(trace, dug);
+	}
+	
+	/**
+	 * Returns the givens that result from blanking the first {@code count} cells of a {@link #digTrace} in the given
+	 * solution.
+	 *
+	 * @param solution The complete row-major solution grid the trace was dug from
+	 * @param trace The dig trace, as returned by {@link #digTrace}
+	 * @param count How many of the trace's holes to apply
+	 * @return A new row-major givens array, {@code 0} marking a hole, whose puzzle has exactly one solution
+	 * @throws IllegalArgumentException If the count is negative or longer than the trace
+	 * @throws NullPointerException If the solution or the trace is null
+	 */
+	public static int[] withHoles(int[] solution, int[] trace, int count) {
+		if (count < 0 || count > trace.length) {
+			throw new IllegalArgumentException("Hole count " + count + " is not in 0.." + trace.length);
+		}
+		
+		int[] givens = solution.clone();
+		for (int index = 0; index < count; index++) {
+			givens[trace[index]] = 0;
+		}
+		return givens;
 	}
 }

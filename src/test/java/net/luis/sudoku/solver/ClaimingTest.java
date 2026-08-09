@@ -8,14 +8,14 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Test class for {@link BoxLineReduction}.
+ * Test class for {@link Claiming}.
  */
-class BoxLineReductionTest {
+class ClaimingTest {
 	
 	/**
 	 * A generated, uniquely solvable 9x9 puzzle in whose fresh candidate grid the digit 2 is confined within
 	 * column 1 to region 0, so a box-line reduction removes it from cells 9 and 11 in the rest of that region.
-	 * This fixture was chosen so that its dual, the {@link PointingPair}, makes no progress on the same grid,
+	 * This fixture was chosen so that its dual, the {@link Pointing}, makes no progress on the same grid,
 	 * which pins the elimination on box-line reduction alone.
 	 */
 	private static final String[] BOX_PRESENT = {
@@ -46,23 +46,23 @@ class BoxLineReductionTest {
 	void find_lineConfinedToARegion_returnsTheExpectedEliminations() {
 		CandidateGrid grid = new CandidateGrid(puzzle(BOX_PRESENT));
 		
-		Optional<Deduction> deduction = new BoxLineReduction().find(grid);
+		Optional<Deduction> deduction = new Claiming().find(grid);
 		
-		assertEquals(Optional.of(new Deduction.Eliminations(Technique.BOX_LINE_REDUCTION, EXPECTED_CELLS, EXPECTED_DIGITS)), deduction);
+		assertEquals(Optional.of(new Deduction.Eliminations(Technique.CLAIMING, EXPECTED_CELLS, EXPECTED_DIGITS)), deduction);
 	}
 	
 	@Test
 	void find_thisFixture_isNotAlsoAPointingPair() {
 		CandidateGrid grid = new CandidateGrid(puzzle(BOX_PRESENT));
 		
-		assertTrue(new PointingPair().find(grid).isEmpty(), "The fixture must isolate box-line reduction from its dual");
+		assertTrue(new Pointing().find(grid).isEmpty(), "The fixture must isolate box-line reduction from its dual");
 	}
 	
 	@Test
 	void find_eliminations_removeNoDigitOfTheTrueSolution() {
 		Puzzle puzzle = puzzle(BOX_PRESENT);
 		int[] solution = BacktrackingSolver.solve(puzzle).orElseThrow();
-		Deduction.Eliminations eliminations = (Deduction.Eliminations) new BoxLineReduction().find(new CandidateGrid(puzzle)).orElseThrow();
+		Deduction.Eliminations eliminations = (Deduction.Eliminations) new Claiming().find(new CandidateGrid(puzzle)).orElseThrow();
 		
 		int[] cells = eliminations.cells();
 		int[] digits = eliminations.digits();
@@ -76,7 +76,7 @@ class BoxLineReductionTest {
 	@Test
 	void find_eliminationsApplied_removeTheCandidates() {
 		CandidateGrid grid = new CandidateGrid(puzzle(BOX_PRESENT));
-		Deduction deduction = new BoxLineReduction().find(grid).orElseThrow();
+		Deduction deduction = new Claiming().find(grid).orElseThrow();
 		
 		boolean changed = deduction.applyTo(grid);
 		
@@ -91,11 +91,11 @@ class BoxLineReductionTest {
 	void find_emptyGridWithoutAnyBoxLineReduction_returnsEmpty() {
 		CandidateGrid grid = new CandidateGrid(emptyNine());
 		
-		assertTrue(new BoxLineReduction().find(grid).isEmpty());
+		assertTrue(new Claiming().find(grid).isEmpty());
 	}
 	
 	@Test
 	void technique_always_isBoxLineReduction() {
-		assertEquals(Technique.BOX_LINE_REDUCTION, new BoxLineReduction().technique());
+		assertEquals(Technique.CLAIMING, new Claiming().technique());
 	}
 }

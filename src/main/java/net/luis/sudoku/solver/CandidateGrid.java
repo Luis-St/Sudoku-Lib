@@ -115,6 +115,46 @@ public final class CandidateGrid {
 		this.allUnitList = List.of(all);
 	}
 	
+	/**
+	 * Copy constructor: clones the mutable state and shares the precomputed layout.
+	 * <p>
+	 *     The unit lists, the region lookup and the peer arrays depend only on the grid's shape, never on its values,
+	 *     so a copy shares them rather than rebuilding them. They are documented as never mutated by callers, which is
+	 *     what makes the sharing safe.
+	 * </p>
+	 */
+	private CandidateGrid(CandidateGrid source) {
+		this.size = source.size;
+		this.partition = source.partition;
+		this.n = source.n;
+		this.cellCount = source.cellCount;
+		this.fullMask = source.fullMask;
+		this.values = source.values.clone();
+		this.candidates = source.candidates.clone();
+		this.regionOf = source.regionOf;
+		this.rowUnits = source.rowUnits;
+		this.columnUnits = source.columnUnits;
+		this.regionUnits = source.regionUnits;
+		this.peers = source.peers;
+		this.rowList = source.rowList;
+		this.columnList = source.columnList;
+		this.regionList = source.regionList;
+		this.allUnitList = source.allUnitList;
+	}
+	
+	/**
+	 * Returns an independent copy of this grid, sharing only the immutable precomputed layout.
+	 * <p>
+	 *     The assumption-driven techniques — {@link Nishio}, the forcing chains and nets — need somewhere to play a
+	 *     hypothesis out without disturbing the grid the solver is working on. Copying is how they get it.
+	 * </p>
+	 *
+	 * @return A copy whose values and candidates can be mutated freely
+	 */
+	public CandidateGrid copy() {
+		return new CandidateGrid(this);
+	}
+	
 	private void buildPeers(int cell, boolean[] mark) {
 		int row = cell / this.n;
 		int column = cell % this.n;

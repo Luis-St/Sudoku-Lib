@@ -8,9 +8,9 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Test class for {@link PointingPair}.
+ * Test class for {@link Pointing}.
  */
-class PointingPairTest {
+class PointingTest {
 	
 	/**
 	 * A generated, uniquely solvable 9x9 puzzle in whose fresh candidate grid the digit 3 is confined within its
@@ -44,16 +44,16 @@ class PointingPairTest {
 	void find_regionConfinedToALine_returnsTheExpectedEliminations() {
 		CandidateGrid grid = new CandidateGrid(puzzle(POINTING_PRESENT));
 		
-		Optional<Deduction> deduction = new PointingPair().find(grid);
+		Optional<Deduction> deduction = new Pointing().find(grid);
 		
-		assertEquals(Optional.of(new Deduction.Eliminations(Technique.POINTING_PAIR, EXPECTED_CELLS, EXPECTED_DIGITS)), deduction);
+		assertEquals(Optional.of(new Deduction.Eliminations(Technique.POINTING, EXPECTED_CELLS, EXPECTED_DIGITS)), deduction);
 	}
 	
 	@Test
 	void find_eliminations_removeNoDigitOfTheTrueSolution() {
 		Puzzle puzzle = puzzle(POINTING_PRESENT);
 		int[] solution = BacktrackingSolver.solve(puzzle).orElseThrow();
-		Deduction.Eliminations eliminations = (Deduction.Eliminations) new PointingPair().find(new CandidateGrid(puzzle)).orElseThrow();
+		Deduction.Eliminations eliminations = (Deduction.Eliminations) new Pointing().find(new CandidateGrid(puzzle)).orElseThrow();
 		
 		int[] cells = eliminations.cells();
 		int[] digits = eliminations.digits();
@@ -67,7 +67,7 @@ class PointingPairTest {
 	@Test
 	void find_eliminationsApplied_removeTheCandidates() {
 		CandidateGrid grid = new CandidateGrid(puzzle(POINTING_PRESENT));
-		Deduction deduction = new PointingPair().find(grid).orElseThrow();
+		Deduction deduction = new Pointing().find(grid).orElseThrow();
 		
 		boolean changed = deduction.applyTo(grid);
 		
@@ -82,11 +82,11 @@ class PointingPairTest {
 	void find_emptyGridWithoutAnyPointingPair_returnsEmpty() {
 		CandidateGrid grid = new CandidateGrid(emptyNine());
 		
-		assertTrue(new PointingPair().find(grid).isEmpty());
+		assertTrue(new Pointing().find(grid).isEmpty());
 	}
 	
 	@Test
 	void technique_always_isPointingPair() {
-		assertEquals(Technique.POINTING_PAIR, new PointingPair().technique());
+		assertEquals(Technique.POINTING, new Pointing().technique());
 	}
 }

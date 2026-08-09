@@ -1,19 +1,22 @@
 package net.luis.sudoku.solver;
 
-import java.util.*;
+import java.util.Optional;
 
 /**
- * The XY-Wing technique: a bi-value pivot with two bi-value wings eliminates the shared third digit from every cell
- * both wings see.
+ * The XY-Wing: a bi-value pivot with two bi-value wings eliminates the shared third digit from every cell both wings
+ * see.
  * <p>
  *     The pivot holds candidates {@code {x, y}}. One wing is a peer of the pivot holding {@code {x, z}}, the other a
  *     peer holding {@code {y, z}}. Whichever digit the pivot takes, one of the wings is forced to {@code z}, so any
- *     cell seen by <b>both</b> wings cannot hold {@code z}. The scan is deterministic — pivot cells ascending, then
- *     wing cells ascending among the pivot's peers — and the first configuration that removes at least one candidate is
- *     returned.
+ *     cell seen by <b>both</b> wings cannot hold {@code z}.
+ * </p>
+ * <p>
+ *     The scan is deterministic — pivot cells ascending, then wing cells ascending among the pivot's peers — and the
+ *     first configuration that removes at least one candidate is returned.
  * </p>
  *
  * @see TechniqueStrategy
+ * @see XyzWing
  * @see Technique#XY_WING
  */
 public final class XyWing implements TechniqueStrategy {
@@ -56,17 +59,15 @@ public final class XyWing implements TechniqueStrategy {
 				}
 				
 				int z = maskA & ~pivotMask;
-				int otherPivot = pivotMask & ~shared;
-				int wantB = otherPivot | z;
+				int wantB = (pivotMask & ~shared) | z;
 				for (int wingB : peers) {
 					if (wingB == wingA || grid.candidates(wingB) != wantB) {
 						continue;
 					}
 					
-					int zDigit = Integer.numberOfTrailingZeros(z);
-					Optional<Deduction> elimination = this.eliminate(grid, pivot, wingA, wingB, zDigit);
-					if (elimination.isPresent()) {
-						return elimination;
+					Optional<Deduction> found = this.eliminate(grid, pivot, wingA, wingB, Integer.numberOfTrailingZeros(z));
+					if (found.isPresent()) {
+						return found;
 					}
 				}
 			}
@@ -74,23 +75,17 @@ public final class XyWing implements TechniqueStrategy {
 		return Optional.empty();
 	}
 	
-	private Optional<Deduction> eliminate(CandidateGrid grid, int pivot, int wingA, int wingB, int zDigit) {
-		List<Integer> cells = new ArrayList<>();
-		List<Integer> digits = new ArrayList<>();
+	private Optional<Deduction> eliminate(CandidateGrid grid, int pivot, int wingA, int wingB, int digit) {
+		EliminationBuilder builder = new EliminationBuilder();
 		for (int cell = 0; cell < grid.cellCount(); cell++) {
 			if (cell == pivot || cell == wingA || cell == wingB) {
 				continue;
 			}
 			
-			if (grid.peers(cell, wingA) && grid.peers(cell, wingB) && grid.hasCandidate(cell, zDigit)) {
-				cells.add(cell);
-				digits.add(zDigit);
+			if (grid.peers(cell, wingA) && grid.peers(cell, wingB)) {
+				builder.add(grid, cell, digit);
 			}
 		}
-		
-		if (cells.isEmpty()) {
-			return Optional.empty();
-		}
-		return Optional.of(new Deduction.Eliminations(Technique.XY_WING, NakedPair.toArray(cells), NakedPair.toArray(digits)));
+		return builder.build(Technique.XY_WING);
 	}
 }

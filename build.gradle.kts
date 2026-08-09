@@ -87,3 +87,29 @@ tasks.named<Jar>("jar") {
 		)
 	}
 }
+
+// The generation bench is a measurement tool, not a test: it is run on demand and prints a table, so it stays out
+// of the JUnit suite and off the CI path. See net.luis.sudoku.bench.GenerationBench.
+tasks.register<JavaExec>("bench") {
+	group = "verification"
+	description = "Measures generator band hit rate, timing and hardest-technique distribution."
+	classpath = sourceSets["test"].runtimeClasspath
+	mainClass.set("net.luis.sudoku.bench.GenerationBench")
+	listOf("seeds", "size", "variant").forEach { name ->
+		if (project.hasProperty(name)) {
+			systemProperty(name, project.property(name)!!)
+		}
+	}
+}
+
+// One-off runner for throwaway probes against the test classpath: ./gradlew probe -Pmain=<fqcn>
+tasks.register<JavaExec>("probe") {
+	group = "verification"
+	classpath = sourceSets["test"].runtimeClasspath
+	mainClass.set(project.findProperty("main")?.toString() ?: "net.luis.sudoku.bench.GenerationBench")
+}
+
+tasks.test {
+	// Lets the strategy soundness sweep be widened on demand: ./gradlew test -Psoundness.seeds=12
+	project.findProperty("soundness.seeds")?.let { systemProperty("soundness.seeds", it) }
+}

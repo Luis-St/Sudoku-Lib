@@ -28,7 +28,7 @@ class TechniqueSolverTest {
 	 * hardest technique is {@link Technique#NAKED_PAIR}.
 	 */
 	private static final String[] NEEDS_SUBSET = {
-		"002095000", "800000000", "000000004", "000056000", "050010270", "048900600", "000000743", "000803002", "006000010"
+		"000803690", "060400000", "054006230", "785000023", "002504076", "410070000", "027140000", "000005709", "000030000"
 	};
 	/**
 	 * A generated, uniquely solvable 9x9 puzzle whose fresh candidate grid offers both a naked single (cell 11,
@@ -66,8 +66,8 @@ class TechniqueSolverTest {
 		assertAll(
 			() -> assertTrue(report.solved(), "The singles-only puzzle must solve"),
 			() -> assertFalse(report.stuck()),
-			() -> assertTrue(report.hardestTechnique().orElseThrow().rank() <= Technique.HIDDEN_SINGLE.rank(),
-				"No technique harder than a hidden single may be needed")
+			() -> assertTrue(report.hardestTechnique().orElseThrow().level() <= Technique.HIDDEN_SINGLE_LINE.level(),
+				"No technique harder than a hidden single may be needed, but " + report.hardestTechnique().orElseThrow() + " was")
 		);
 	}
 	
@@ -96,7 +96,7 @@ class TechniqueSolverTest {
 	void nextStep_gridOfferingASingleAndHarderTechniques_prefersTheSingle() {
 		Puzzle puzzle = puzzle(MIXED_AND_STUCK);
 		CandidateGrid fresh = new CandidateGrid(puzzle);
-		assertTrue(new PointingPair().find(fresh).isPresent(), "The fixture must genuinely also offer a harder technique");
+		assertTrue(new Pointing().find(fresh).isPresent(), "The fixture must genuinely also offer a harder technique");
 		
 		Optional<SolveStep> step = TechniqueSolver.nextStep(puzzle);
 		
@@ -165,21 +165,19 @@ class TechniqueSolverTest {
 	}
 	
 	@Test
-	void solve_hardPuzzleBeyondTheTechniqueSet_reportsStuckAndNotSolved() {
-		TechniqueReport stuck = null;
-		for (long seed = 0; seed <= 40 && stuck == null; seed++) {
-			GeneratedPuzzle candidate = PuzzleGenerator.generate(PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, Difficulty.FIVE, seed));
-			TechniqueReport report = TechniqueSolver.solve(candidate.puzzle());
-			if (report.stuck()) {
-				stuck = report;
-			}
-		}
-		assertNotNull(stuck, "No stuck Difficulty.FIVE puzzle was found in seeds 0..40");
+	void solve_hardPuzzleUnderALevelCap_reportsStuckAtTheCap() {
+		// The technique set no longer leaves hard puzzles unsolved: level 15 assumes a candidate and plays the
+		// position out, so the generator cannot produce a genuinely stuck grid any more. What can still stop the
+		// solver short is a level cap, and that is the case worth pinning, because the band search depends on it.
+		GeneratedPuzzle hard = PuzzleGenerator.generate(PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, Difficulty.LISA, 0L));
 		
-		TechniqueReport report = stuck;
+		TechniqueReport capped = TechniqueSolver.solve(hard.puzzle(), 2);
+		
 		assertAll(
-			() -> assertTrue(report.stuck()),
-			() -> assertFalse(report.solved())
+			() -> assertTrue(capped.stuck()),
+			() -> assertFalse(capped.solved()),
+			() -> assertTrue(capped.exceededCap(), "Stopping at a cap must be distinguishable from exhausting the set"),
+			() -> assertTrue(TechniqueSolver.solve(hard.puzzle()).solved(), "The same puzzle must solve uncapped")
 		);
 	}
 }

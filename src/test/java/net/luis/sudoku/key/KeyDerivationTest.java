@@ -48,7 +48,7 @@ class KeyDerivationTest {
 		0x00, 0x00, 0x00, 0x02,
 		0x10,
 		0x01,
-		0x06,
+		0x0F,
 		(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF
 	};
 	
@@ -262,7 +262,7 @@ class KeyDerivationTest {
 	void deriveState_goldenKeys_matchThePinnedRegressionValues() {
 		assertAll(
 			() -> assertEquals(255335976165330420L, KeyDerivation.deriveState(GOLDEN_KEY_ONE)),
-			() -> assertEquals(1674858060028078552L, KeyDerivation.deriveState(GOLDEN_KEY_TWO))
+			() -> assertEquals(3233486516592329862L, KeyDerivation.deriveState(GOLDEN_KEY_TWO))
 		);
 	}
 	
@@ -307,7 +307,7 @@ class KeyDerivationTest {
 			}
 		}
 		assertAll(
-			() -> assertEquals(3 * 9 * 6 * SWEEP_SEEDS.length, keys.size()),
+			() -> assertEquals(3 * 9 * Difficulty.values().length * SWEEP_SEEDS.length, keys.size()),
 			() -> assertEquals(keys.size(), seen.size())
 		);
 	}

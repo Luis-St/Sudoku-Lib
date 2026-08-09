@@ -95,7 +95,7 @@ class RegionGeneratorTest {
 	void generateChaos_everySupportedSize_hasNoRectangularRegionAndIsFillable() {
 		for (GridSize size : CHAOS_SIZES) {
 			RegionGenerator.ChaosLayout layout = RegionGenerator.generateChaosLayout(size, new DeterministicRandom(777L));
-
+			
 			for (Region region : layout.partition().regions()) {
 				// Covers full rows and columns (the 1-wide rectangles) as well as classic box shapes.
 				assertFalse(isRectangular(size, region), "A region is a plain rectangle for " + size);

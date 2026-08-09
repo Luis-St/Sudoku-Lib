@@ -28,14 +28,12 @@ class DifficultyRaterTest {
 	}
 	
 	@Test
-	void rate_isNeverLisa() {
-		for (Difficulty requested : Difficulty.values()) {
-			for (long seed = 0; seed < 5; seed++) {
-				GeneratedPuzzle generated = PuzzleGenerator.generate(PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, requested, seed));
-				
-				assertNotEquals(Difficulty.LISA, RATER.rate(generated.puzzle()), "Rater must return a numbered band for " + requested + " seed " + seed);
-			}
-		}
+	void rate_lisaRequest_doesReturnLisa() {
+		// Lisa is a rating of its own now: level 15 names the techniques that assume a candidate and play the
+		// position out, so a Lisa request that lands is genuinely rated Lisa rather than clamped below it.
+		GeneratedPuzzle generated = PuzzleGenerator.generate(PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, Difficulty.LISA, 0L));
+		
+		assertEquals(Difficulty.LISA, RATER.rate(generated.puzzle()));
 	}
 	
 	@Test

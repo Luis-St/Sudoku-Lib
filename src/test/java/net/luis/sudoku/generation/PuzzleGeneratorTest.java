@@ -185,16 +185,200 @@ class PuzzleGeneratorTest {
 	@Test
 	void generate_requestedBandThatIsReliablyReachable_isRatedAsRequested() {
 		DifficultyRater rater = new DifficultyRater();
-		// ONE (singles), FIVE (needs guessing) and LISA (the size ceiling, which is FIVE at 9x9) are reliably
-		// reachable within the attempt bound at 9x9; the middle bands may fall back to the closest candidate.
+		// Bands 1 to 4 and 7 land on every one of the first 32 seeds at 9x9 (./gradlew bench). The others are
+		// reachable but not certain on a given seed, and may fall back to the closest candidate, so pinning them
+		// here would make this test a flake rather than a check.
+		Difficulty[] reliable = { Difficulty.ONE, Difficulty.TWO, Difficulty.THREE, Difficulty.FOUR, Difficulty.SEVEN };
 		for (long seed = 0; seed < 8; seed++) {
-			assertEquals(Difficulty.ONE, rater.rate(PuzzleGenerator.generate(PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, Difficulty.ONE, seed)).puzzle()),
-				"Requested ONE was not rated ONE at seed " + seed);
-			assertEquals(Difficulty.FIVE, rater.rate(PuzzleGenerator.generate(PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, Difficulty.FIVE, seed)).puzzle()),
-				"Requested FIVE was not rated FIVE at seed " + seed);
-			assertEquals(Difficulty.FIVE, rater.rate(PuzzleGenerator.generate(PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, Difficulty.LISA, seed)).puzzle()),
-				"Requested LISA (ceiling FIVE) was not rated FIVE at seed " + seed);
+			for (Difficulty requested : reliable) {
+				PuzzleKey key = PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, requested, seed);
+				
+				assertEquals(requested, rater.rate(PuzzleGenerator.generate(key).puzzle()),
+					"Requested " + requested + " was not rated " + requested + " at seed " + seed);
+			}
 		}
+	}
+	
+	@Test
+	void generate_bandTheSizeCannotProduce_snapsToTheNearestSupportedBand() {
+		DifficultyRater rater = new DifficultyRater();
+		// A 4x4 grid supports band 1 alone, so every harder request must come back as a band-1 puzzle rather than
+		// as something the size cannot actually make.
+		for (Difficulty requested : Difficulty.values()) {
+			PuzzleKey key = PuzzleKey.of(GridSize.FOUR, Variant.CLASSIC, requested, 0L);
+			
+			assertEquals(Difficulty.ONE, rater.rate(PuzzleGenerator.generate(key).puzzle()), requested.toString());
+		}
+	}
+	
+	@Test
+	void partitionFor_classicKey_everySize_isTheCachedBoxLayout() {
+		for (GridSize size : ALL_SIZES) {
+			PuzzleKey key = PuzzleKey.of(size, Variant.CLASSIC, Difficulty.THREE, FIXED_SEED);
+			
+			assertSame(ClassicRegionPartition.of(size), PuzzleGenerator.partitionFor(key), size.toString());
+		}
+	}
+	
+	@Test
+	void partitionFor_classicKey_isThePartitionTheGeneratedPuzzleCarries() {
+		PuzzleKey key = PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, Difficulty.TWO, FIXED_SEED);
+		
+		assertEquals(PuzzleGenerator.generate(key).puzzle().partition(), PuzzleGenerator.partitionFor(key));
+	}
+	
+	@Test
+	void partitionFor_chaosKey_twoEqualKeys_yieldEqualPartitions() {
+		PuzzleKey first = PuzzleKey.of(GridSize.NINE, Variant.CHAOS, Difficulty.TWO, 314L);
+		PuzzleKey second = PuzzleKey.of(GridSize.NINE, Variant.CHAOS, Difficulty.TWO, 314L);
+		
+		assertEquals(PuzzleGenerator.partitionFor(first), PuzzleGenerator.partitionFor(second));
+	}
+	
+	@Test
+	void partitionFor_chaosKey_differentSeeds_yieldDifferentPartitions() {
+		PuzzleKey first = PuzzleKey.of(GridSize.NINE, Variant.CHAOS, Difficulty.TWO, 1L);
+		PuzzleKey second = PuzzleKey.of(GridSize.NINE, Variant.CHAOS, Difficulty.TWO, 2L);
+		
+		assertNotEquals(PuzzleGenerator.partitionFor(first), PuzzleGenerator.partitionFor(second));
+	}
+	
+	@Test
+	@Timeout(value = 120, unit = TimeUnit.SECONDS)
+	void partitionFor_chaosKey_isThePartitionTheGeneratedPuzzleCarries() {
+		for (GridSize size : new GridSize[] { GridSize.SIX, GridSize.NINE, GridSize.TWELVE }) {
+			PuzzleKey key = PuzzleKey.of(size, Variant.CHAOS, Difficulty.THREE, FIXED_SEED);
+			
+			RegionPartition partition = PuzzleGenerator.partitionFor(key);
+			RegionPartition generated = PuzzleGenerator.generate(key).puzzle().partition();
+			
+			assertEquals(size, partition.size(), "Wrong grid size for " + size);
+			assertEquals(generated.regionCount(), partition.regionCount(), "Wrong region count for " + size);
+			for (int regionIndex = 0; regionIndex < generated.regionCount(); regionIndex++) {
+				assertArrayEquals(generated.region(regionIndex).cells(), partition.region(regionIndex).cells(),
+					"Region " + regionIndex + " differs for " + size);
+			}
+			assertNotEquals(ClassicRegionPartition.of(size), partition, "Chaos partition is the classic box layout for " + size);
+		}
+	}
+	
+	@Test
+	void partitionFor_nullKey_throwsNullPointerException() {
+		assertThrows(NullPointerException.class, () -> PuzzleGenerator.partitionFor(null));
+	}
+	
+	@Test
+	void fromGivens_generatedClassicGivens_rebuildTheSamePuzzleAndSolution() {
+		PuzzleKey key = PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, Difficulty.THREE, FIXED_SEED);
+		GeneratedPuzzle generated = PuzzleGenerator.generate(key);
+		
+		GeneratedPuzzle rebuilt = PuzzleGenerator.fromGivens(key, generated.puzzle().values());
+		
+		assertAll(
+			() -> assertEquals(key, rebuilt.key(), "The key is not carried through"),
+			() -> assertArrayEquals(generated.puzzle().values(), rebuilt.puzzle().values(), "Givens differ"),
+			() -> assertEquals(generated.puzzle().partition(), rebuilt.puzzle().partition(), "Partitions differ"),
+			() -> assertEquals(generated.puzzle(), rebuilt.puzzle(), "Puzzles differ"),
+			() -> assertArrayEquals(generated.solution(), rebuilt.solution(), "The derived solution is not the original one")
+		);
+	}
+	
+	@Test
+	void fromGivens_generatedChaosGivens_rebuildTheSamePuzzleAndSolution() {
+		PuzzleKey key = PuzzleKey.of(GridSize.NINE, Variant.CHAOS, Difficulty.THREE, FIXED_SEED);
+		GeneratedPuzzle generated = PuzzleGenerator.generate(key);
+		
+		GeneratedPuzzle rebuilt = PuzzleGenerator.fromGivens(key, generated.puzzle().values());
+		
+		assertAll(
+			() -> assertEquals(Variant.CHAOS, rebuilt.puzzle().variant(), "The variant is not carried through"),
+			() -> assertArrayEquals(generated.puzzle().values(), rebuilt.puzzle().values(), "Givens differ"),
+			() -> assertEquals(generated.puzzle().partition(), rebuilt.puzzle().partition(), "Partitions differ"),
+			() -> assertEquals(generated.puzzle(), rebuilt.puzzle(), "Puzzles differ"),
+			() -> assertArrayEquals(generated.solution(), rebuilt.solution(), "The derived solution is not the original one")
+		);
+	}
+	
+	@Test
+	void fromGivens_marksEveryClueAsAGivenAndLeavesTheHolesEmpty() {
+		PuzzleKey key = PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, Difficulty.TWO, 99L);
+		int[] givens = PuzzleGenerator.generate(key).puzzle().values();
+		
+		Puzzle rebuilt = PuzzleGenerator.fromGivens(key, givens).puzzle();
+		
+		assertGivensMarkedAndHolesEmptyInValidGrid(rebuilt, "rebuilt 9x9 classic");
+	}
+	
+	@Test
+	void fromGivens_aCompleteSolution_isAcceptedAsAUniquePuzzle() {
+		PuzzleKey key = PuzzleKey.of(GridSize.FOUR, Variant.CLASSIC, Difficulty.ONE, 5L);
+		GeneratedPuzzle generated = PuzzleGenerator.generate(key);
+		
+		GeneratedPuzzle rebuilt = PuzzleGenerator.fromGivens(key, generated.solution());
+		
+		assertAll(
+			() -> assertTrue(rebuilt.puzzle().isSolved(), "A complete solution did not rebuild into a solved grid"),
+			() -> assertArrayEquals(generated.solution(), rebuilt.solution(), "The derived solution differs")
+		);
+	}
+	
+	@Test
+	void fromGivens_wrongLength_throwsIllegalArgumentException() {
+		PuzzleKey key = PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, Difficulty.ONE, FIXED_SEED);
+		
+		assertAll(
+			() -> assertThrows(IllegalArgumentException.class, () -> PuzzleGenerator.fromGivens(key, new int[80])),
+			() -> assertThrows(IllegalArgumentException.class, () -> PuzzleGenerator.fromGivens(key, new int[82])),
+			() -> assertThrows(IllegalArgumentException.class, () -> PuzzleGenerator.fromGivens(key, new int[0]))
+		);
+	}
+	
+	@Test
+	void fromGivens_illegalDigit_throwsIllegalArgumentException() {
+		PuzzleKey key = PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, Difficulty.ONE, FIXED_SEED);
+		int[] givens = new int[81];
+		givens[0] = 10;
+		
+		assertThrows(IllegalArgumentException.class, () -> PuzzleGenerator.fromGivens(key, givens));
+	}
+	
+	@Test
+	void fromGivens_givensWithoutAUniqueSolution_throwsIllegalArgumentException() {
+		PuzzleKey key = PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, Difficulty.ONE, FIXED_SEED);
+		int[] almostEmpty = new int[81];
+		almostEmpty[0] = 1;
+		
+		assertAll(
+			() -> assertThrows(IllegalArgumentException.class, () -> PuzzleGenerator.fromGivens(key, new int[81])),
+			() -> assertThrows(IllegalArgumentException.class, () -> PuzzleGenerator.fromGivens(key, almostEmpty))
+		);
+	}
+	
+	@Test
+	void fromGivens_givensThatContradictThemselves_throwsIllegalArgumentException() {
+		PuzzleKey key = PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, Difficulty.ONE, FIXED_SEED);
+		GeneratedPuzzle generated = PuzzleGenerator.generate(key);
+		int[] givens = generated.puzzle().values();
+		// Filling one hole with anything but the solution's digit leaves a grid with no solution at all.
+		int hole = 0;
+		while (givens[hole] != 0) {
+			hole++;
+		}
+		givens[hole] = generated.solutionAt(hole) % 9 + 1;
+		
+		assertThrows(IllegalArgumentException.class, () -> PuzzleGenerator.fromGivens(key, givens));
+	}
+	
+	@Test
+	void fromGivens_nullKey_throwsNullPointerException() {
+		assertThrows(NullPointerException.class, () -> PuzzleGenerator.fromGivens(null, new int[81]));
+	}
+	
+	@Test
+	void fromGivens_nullGivens_throwsNullPointerException() {
+		PuzzleKey key = PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, Difficulty.ONE, FIXED_SEED);
+		
+		assertThrows(NullPointerException.class, () -> PuzzleGenerator.fromGivens(key, null));
 	}
 	
 	@Test

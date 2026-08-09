@@ -20,7 +20,7 @@ class TechniqueReportTest {
 	}
 	
 	private static TechniqueReport report(boolean solved, boolean stuck, int[] solution, Map<Technique, Integer> usage) {
-		return new TechniqueReport(solved, stuck, solution, usage);
+		return new TechniqueReport(solved, stuck, false, solution, usage);
 	}
 	
 	@Test
@@ -45,11 +45,11 @@ class TechniqueReportTest {
 	
 	@Test
 	void usage_techniqueWithAZeroCount_isTreatedAsAbsent() {
-		TechniqueReport report = report(true, false, new int[81], usage(Technique.NAKED_SINGLE, 5, Technique.HIDDEN_SINGLE, 0));
+		TechniqueReport report = report(true, false, new int[81], usage(Technique.NAKED_SINGLE, 5, Technique.HIDDEN_SINGLE_REGION, 0));
 		
 		assertAll(
-			() -> assertFalse(report.usage().containsKey(Technique.HIDDEN_SINGLE)),
-			() -> assertEquals(0, report.count(Technique.HIDDEN_SINGLE)),
+			() -> assertFalse(report.usage().containsKey(Technique.HIDDEN_SINGLE_REGION)),
+			() -> assertEquals(0, report.count(Technique.HIDDEN_SINGLE_REGION)),
 			() -> assertEquals(5, report.count(Technique.NAKED_SINGLE))
 		);
 	}

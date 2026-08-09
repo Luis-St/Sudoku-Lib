@@ -6,6 +6,7 @@ import net.luis.sudoku.grid.*;
 import net.luis.sudoku.key.KeyDerivation;
 import net.luis.sudoku.key.PuzzleKey;
 import net.luis.sudoku.rng.DeterministicRandom;
+import net.luis.sudoku.solver.BacktrackingSolver;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -58,8 +59,26 @@ public final class PuzzleGenerator {
 	 *     in the target band. The bound keeps generation finite even for a band that is rare or unreachable at a given
 	 *     size, in which case the closest-rated candidate is returned instead.
 	 * </p>
+	 * <p>
+	 *     Raised from 24 once an attempt stopped paying for a dig per budget step: a whole attempt now digs one walk
+	 *     and slices it, so the marginal cost of another attempt is mostly the ratings, and only a <i>failing</i>
+	 *     search pays the full bound at all. Measured at 9x9 over 32 seeds a band, doubling it lifted the weakest
+	 *     band from 20/32 to 25/32 and the overall hit rate from 83% to 93%, for roughly 40% on the worst case of the
+	 *     hardest bands.
+	 * </p>
 	 */
-	public static final int MAX_ATTEMPTS = 16;
+	public static final int MAX_ATTEMPTS = 48;
+	
+	/**
+	 * How many hole budgets a single attempt tries on its own solution before giving up on it.
+	 * <p>
+	 *     The budget search is a bisection over the number of holes, so this many steps narrow the whole range of a
+	 *     16x16 grid down to a single value. Spending them on one fixed solution <i>and one fixed dig order</i> is what
+	 *     makes the rating a monotone signal to search on: two different digs of the same depth need not rate the same,
+	 *     so a search that redrew the order per step would be comparing unrelated puzzles.
+	 * </p>
+	 */
+	public static final int MAX_BUDGET_STEPS = 9;
 	
 	private PuzzleGenerator() {}
 	
@@ -84,12 +103,10 @@ public final class PuzzleGenerator {
 	 * @return The hole budget for that size and variant
 	 */
 	private static int maxHolesFor(GridSize size, Variant variant) {
-		if (variant == Variant.CHAOS) {
-			// Proving a sparse jigsaw grid uniquely solvable is far more expensive than a classic one, so chaos digs
-			// to about half the grid — still a challenging puzzle given the irregular regions, but bounded and fast.
-			return size.cellCount() / 2;
-		}
-		
+		// Chaos used to be capped separately at half the grid, on the grounds that proving a sparse jigsaw unique is
+		// expensive. Measured, that left 41+ givens at 9x9 and every band above 2 came back rated 1 or 2 — the cap,
+		// not the rater, decided the difficulty of every chaos puzzle. Both variants now share the per-size cap,
+		// which a whole attempt can afford now that it digs one walk rather than one per budget step.
 		return switch (size) {
 			case SIXTEEN -> 140;
 			case TWELVE -> 90;
@@ -131,8 +148,11 @@ public final class PuzzleGenerator {
 			partition = ClassicRegionPartition.of(key.size());
 		}
 		
-		GeneratedPuzzle closest = null;
-		int closestDistance = Integer.MAX_VALUE;
+		int ceiling = Math.min(maxHoles, key.size().cellCount());
+		GeneratedPuzzle closestBelow = null;
+		int closestBelowDistance = Integer.MAX_VALUE;
+		GeneratedPuzzle shallowestAbove = null;
+		int shallowestAboveHoles = Integer.MAX_VALUE;
 		for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
 			int[] solution;
 			if (chaosSolution != null) {
@@ -145,43 +165,150 @@ public final class PuzzleGenerator {
 				solution = filled.orElseThrow();
 			}
 			
-			int[] givens = HoleDigger.dig(partition, solution, random, maxHoles);
-			Puzzle puzzle = Puzzle.ofGivens(key.size(), key.variant(), partition, givens);
-			Difficulty rated = RATER.rate(puzzle);
-			if (rated == target) {
-				return new GeneratedPuzzle(key, puzzle, solution);
-			}
+			// Sparser grids force harder techniques, so the hole count is the dial the target band is found on and
+			// the rating is the signal: too easy means dig more, too hard means dig less. The dial is only a
+			// monotone signal if every budget describes the *same* dig taken to a different depth, which is why the
+			// visit order is drawn once here and the whole walk is dug once: every budget below is a prefix of that
+			// one trace, so it costs an array slice rather than a fresh dig and a fresh uniqueness proof per step.
+			// A fresh solution each attempt is what gives the search a second chance at a band this solution cannot
+			// reach at any depth.
+			int[] order = random.shuffledRange(key.size().cellCount());
+			int[] trace = HoleDigger.digTrace(partition, solution, order, ceiling);
 			
-			int distance = Math.abs(rated.index() - target.index());
-			if (distance < closestDistance) {
-				closestDistance = distance;
-				closest = new GeneratedPuzzle(key, puzzle, solution);
+			int fewest = 0;
+			int most = trace.length;
+			for (int step = 0; step < MAX_BUDGET_STEPS && fewest <= most; step++) {
+				int holes = fewest + (most - fewest) / 2;
+				int[] givens = HoleDigger.withHoles(solution, trace, holes);
+				Puzzle puzzle = Puzzle.ofGivens(key.size(), key.variant(), partition, givens);
+				
+				// Rating only up to the target is enough to steer the search and never constructs the strategies
+				// above it; an empty result means "harder than the target" and nothing more.
+				Optional<Difficulty> rated = RATER.rateUpTo(puzzle, target);
+				if (rated.isEmpty()) {
+					if (holes < shallowestAboveHoles) {
+						shallowestAboveHoles = holes;
+						shallowestAbove = new GeneratedPuzzle(key, puzzle, solution);
+					}
+					most = holes - 1;
+					continue;
+				}
+				
+				Difficulty band = rated.orElseThrow();
+				if (band == target) {
+					return new GeneratedPuzzle(key, puzzle, solution);
+				}
+				
+				int distance = target.index() - band.index();
+				if (distance < closestBelowDistance) {
+					closestBelowDistance = distance;
+					closestBelow = new GeneratedPuzzle(key, puzzle, solution);
+				}
+				fewest = holes + 1;
 			}
 		}
 		
-		if (closest == null) {
+		GeneratedPuzzle fallback = chooseFallback(closestBelow, closestBelowDistance, shallowestAbove, target);
+		if (fallback == null) {
 			throw new IllegalStateException("Failed to generate any puzzle for " + key + " within " + MAX_ATTEMPTS + " attempts");
 		}
-		return closest;
+		return fallback;
 	}
 	
 	/**
-	 * Returns the numbered band the generator should aim for given a key's requested difficulty.
+	 * Picks the candidate to return when no attempt landed in the target band.
 	 * <p>
-	 *     A {@link Difficulty#LISA} request targets the size's hardest band, since Lisa is that band plus a runtime
-	 *     modifier set rather than a distinct rating (spec §4.3). A numbered request is clamped to the size's ceiling,
-	 *     because a small grid cannot reach a genuinely hard band. The rater only ever returns numbered bands, so the
-	 *     target is always a numbered band too.
+	 *     The two sides of the search are not symmetric: a candidate rated below the target has a known distance,
+	 *     while one that overshot only proved "harder than the target", since the capped rating stops there. So the
+	 *     over-shooting candidate is re-rated once, itself capped two bands above the target, which is enough to tell
+	 *     a near miss from a wild one without paying for a full rating of a hard puzzle. Anything still above that
+	 *     cap is treated as three bands out, which loses to any nearer candidate below.
+	 * </p>
+	 */
+	private static GeneratedPuzzle chooseFallback(GeneratedPuzzle closestBelow, int closestBelowDistance, GeneratedPuzzle shallowestAbove, Difficulty target) {
+		if (shallowestAbove == null) {
+			return closestBelow;
+		}
+		
+		int probe = Math.min(target.index() + 2, Difficulty.LISA.index());
+		int aboveDistance = RATER.rateUpTo(shallowestAbove.puzzle(), Difficulty.ofIndex(probe))
+			.map(band -> band.index() - target.index())
+			.orElse(3);
+		return aboveDistance < closestBelowDistance ? shallowestAbove : closestBelow;
+	}
+	
+	/**
+	 * Returns the region layout a key's puzzle is built on, without generating the puzzle.
+	 * <p>
+	 *     A classic key always maps to the cached box layout of its size. A chaos key grows its jigsaw from the key's
+	 *     own random stream, and because that grow happens <i>first</i> in {@link #generate(PuzzleKey)}, before any
+	 *     filling, digging or rating, reproducing it here costs a small fraction of a full generation. That is what
+	 *     lets a client that was handed a finished set of givens rebuild the board they belong to.
+	 * </p>
+	 *
+	 * @param key The key to build the layout for
+	 * @return The region layout
+	 * @throws NullPointerException If the key is null
+	 */
+	public static RegionPartition partitionFor(PuzzleKey key) {
+		Objects.requireNonNull(key, "Key must not be null");
+		if (key.variant() != Variant.CHAOS) {
+			return ClassicRegionPartition.of(key.size());
+		}
+		return RegionGenerator.generateChaosLayout(key.size(), KeyDerivation.randomFor(key)).partition();
+	}
+	
+	/**
+	 * Rebuilds a puzzle from givens that were generated elsewhere, deriving the layout from the key and the solution
+	 * from the givens.
+	 * <p>
+	 *     This is the receiving half of shipping a grid over the wire. The digits carry no proof of anything, so they
+	 *     are not taken on trust: the puzzle is solved and required to have exactly one solution, which is the same
+	 *     property {@link HoleDigger} guarantees for a puzzle this side generated itself. Solving is a plain
+	 *     backtracking search over a mostly filled grid and costs milliseconds, so nothing is gained by sending the
+	 *     answer alongside — and a second field that can disagree with the first is a bug waiting to happen.
+	 * </p>
+	 * <p>
+	 *     The rated band is <b>not</b> re-derived. The key states which band was asked for and the sender rated what
+	 *     it actually produced; re-rating here would cost more than the decode it is attached to and could only
+	 *     disagree with a puzzle that is already in the player's hands.
+	 * </p>
+	 *
+	 * @param key The key the givens belong to, which supplies the size, the variant and the chaos layout
+	 * @param givens One entry per cell in index order, {@code 0} for an empty cell
+	 * @return The rebuilt puzzle together with its derived solution
+	 * @throws NullPointerException If the key or the givens are null
+	 * @throws IllegalArgumentException If the givens do not match the key's size, contain an illegal digit, or do not
+	 * 		describe a uniquely solvable puzzle
+	 */
+	public static GeneratedPuzzle fromGivens(PuzzleKey key, int[] givens) {
+		Objects.requireNonNull(key, "Key must not be null");
+		Objects.requireNonNull(givens, "Givens must not be null");
+		if (givens.length != key.size().cellCount()) {
+			throw new IllegalArgumentException("Givens must hold " + key.size().cellCount() + " cells, but held " + givens.length);
+		}
+		
+		Puzzle puzzle = Puzzle.ofGivens(key.size(), key.variant(), partitionFor(key), givens);
+		if (BacktrackingSolver.countSolutions(puzzle, 2) != 1) {
+			throw new IllegalArgumentException("Givens for " + key + " do not describe a uniquely solvable puzzle");
+		}
+		
+		int[] solution = BacktrackingSolver.solve(puzzle).orElseThrow(() -> new IllegalArgumentException("Givens for " + key + " are not solvable"));
+		return new GeneratedPuzzle(key, puzzle, solution);
+	}
+	
+	/**
+	 * Returns the band the generator should aim for given a key's requested difficulty.
+	 * <p>
+	 *     The request is clamped to the size's ceiling, because a small grid cannot reach a genuinely hard band
+	 *     (spec §4.3). {@link Difficulty#LISA} needs no special case: it is a rating of its own now — the puzzle must
+	 *     genuinely force a level-15 technique — and clamps like any other band on a size that cannot reach it.
 	 * </p>
 	 *
 	 * @param key The key being generated for
-	 * @return The numbered target band
+	 * @return The target band
 	 */
 	private static Difficulty targetBandFor(PuzzleKey key) {
-		Difficulty ceiling = RATER.bands().ceiling(key.size());
-		if (key.difficulty().isLisa() || key.difficulty().index() > ceiling.index()) {
-			return ceiling;
-		}
-		return key.difficulty();
+		return RATER.bands().nearestSupported(key.size(), key.difficulty());
 	}
 }

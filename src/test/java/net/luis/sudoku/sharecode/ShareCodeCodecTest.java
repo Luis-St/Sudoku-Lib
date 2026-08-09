@@ -46,7 +46,7 @@ class ShareCodeCodecTest {
 		assertAll(
 			() -> assertEquals("AAAAAAIJAABQAAAAAAAAAAAA",
 				ShareCodeCodec.encode(new PuzzleKey(1, GridSize.NINE, Variant.CLASSIC, Difficulty.THREE, 0L))),
-			() -> assertEquals("AAAAAAQQAEDP777777777777",
+			() -> assertEquals("AAAAAAQQAEH7777777777777",
 				ShareCodeCodec.encode(new PuzzleKey(2, GridSize.SIXTEEN, Variant.CHAOS, Difficulty.LISA, -1L)))
 		);
 	}

@@ -7,7 +7,7 @@ import java.util.Optional;
  * <p>
  *     The scan is deterministic — cells are visited in ascending row-major order and the first empty cell whose
  *     candidate set has collapsed to a single digit is placed. This is the easiest technique and the only one the
- *     solver reaches for before {@link HiddenSingle}.
+ *     solver reaches for before {@link HiddenSingleRegion}.
  * </p>
  *
  * @see TechniqueStrategy

@@ -8,13 +8,13 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Test class for {@link HiddenSingle}.
+ * Test class for {@link HiddenSingleRegion}.
  */
-class HiddenSingleTest {
+class HiddenSingleRegionTest {
 	
 	/**
-	 * A generated, uniquely solvable 9x9 puzzle in whose fresh candidate grid the digit 1 is a candidate of only
-	 * cell 36 within its row, a hidden single.
+	 * A generated, uniquely solvable 9x9 puzzle in whose fresh candidate grid the digit 3 is a candidate of only
+	 * cell 8 within its box, a hidden single in a region.
 	 */
 	private static final String[] SINGLE_PRESENT = {
 		"050000700", "070005046", "018070002", "009004001", "000009060", "000710030", "003090085", "000000000", "501000300"
@@ -42,16 +42,16 @@ class HiddenSingleTest {
 	void find_unitWithAConfinedDigit_returnsThatPlacement() {
 		CandidateGrid grid = new CandidateGrid(puzzle(SINGLE_PRESENT));
 		
-		Optional<Deduction> deduction = new HiddenSingle().find(grid);
+		Optional<Deduction> deduction = new HiddenSingleRegion().find(grid);
 		
-		assertEquals(Optional.of(new Deduction.Placement(Technique.HIDDEN_SINGLE, 36, 1)), deduction);
+		assertEquals(Optional.of(new Deduction.Placement(Technique.HIDDEN_SINGLE_REGION, 8, 3)), deduction);
 	}
 	
 	@Test
 	void find_placement_agreesWithTheUniqueSolution() {
 		Puzzle puzzle = puzzle(SINGLE_PRESENT);
 		int[] solution = BacktrackingSolver.solve(puzzle).orElseThrow();
-		Deduction.Placement placement = (Deduction.Placement) new HiddenSingle().find(new CandidateGrid(puzzle)).orElseThrow();
+		Deduction.Placement placement = (Deduction.Placement) new HiddenSingleRegion().find(new CandidateGrid(puzzle)).orElseThrow();
 		
 		assertEquals(solution[placement.cell()], placement.digit(), "The hidden single must match the true solution");
 	}
@@ -59,13 +59,13 @@ class HiddenSingleTest {
 	@Test
 	void find_placementApplied_fillsTheCell() {
 		CandidateGrid grid = new CandidateGrid(puzzle(SINGLE_PRESENT));
-		Deduction deduction = new HiddenSingle().find(grid).orElseThrow();
+		Deduction deduction = new HiddenSingleRegion().find(grid).orElseThrow();
 		
 		boolean changed = deduction.applyTo(grid);
 		
 		assertAll(
 			() -> assertTrue(changed),
-			() -> assertEquals(1, grid.value(36))
+			() -> assertEquals(3, grid.value(8))
 		);
 	}
 	
@@ -73,11 +73,11 @@ class HiddenSingleTest {
 	void find_emptyGridWhereEveryDigitIsSpread_returnsEmpty() {
 		CandidateGrid grid = new CandidateGrid(emptyNine());
 		
-		assertTrue(new HiddenSingle().find(grid).isEmpty());
+		assertTrue(new HiddenSingleRegion().find(grid).isEmpty());
 	}
 	
 	@Test
 	void technique_always_isHiddenSingle() {
-		assertEquals(Technique.HIDDEN_SINGLE, new HiddenSingle().technique());
+		assertEquals(Technique.HIDDEN_SINGLE_REGION, new HiddenSingleRegion().technique());
 	}
 }

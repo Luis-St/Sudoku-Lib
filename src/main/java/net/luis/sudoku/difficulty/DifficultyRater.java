@@ -7,9 +7,10 @@ import net.luis.sudoku.solver.TechniqueReport;
 import net.luis.sudoku.solver.TechniqueSolver;
 
 import java.util.Objects;
+import java.util.Optional;
 
 /**
- * Rates a puzzle by running the human-technique solver over it and mapping the techniques it required to a numbered
+ * Rates a puzzle by running the human-technique solver over it and mapping the techniques it required to a
  * {@link Difficulty} band through a {@link DifficultyBands} configuration.
  * <p>
  *     This is spec §4.3's generate-and-rate half: the {@link PuzzleGenerator} digs a
@@ -17,8 +18,9 @@ import java.util.Objects;
  *     is a pure, deterministic function of the puzzle, because {@link TechniqueSolver#solve} is deterministic.
  * </p>
  * <p>
- *     The rater always returns a numbered band ({@link Difficulty#ONE} through {@link Difficulty#FIVE}), never
- *     {@link Difficulty#LISA}: Lisa is the hardest band plus a runtime modifier set, not a distinct rating.
+ *     The rater returns any of the fifteen bands, {@link Difficulty#LISA} included: level 15 names real branching
+ *     techniques, so Lisa is a genuine rating and not merely "the solver gave up". Lisa's runtime modifier set is a
+ *     client concern layered on top of the band, and plays no part in rating.
  * </p>
  *
  * @see DifficultyBands
@@ -47,7 +49,7 @@ public record DifficultyRater(DifficultyBands bands) {
 	 * Rates the given puzzle by solving it with human techniques and classifying the result.
 	 *
 	 * @param puzzle The puzzle to rate
-	 * @return The numbered difficulty band
+	 * @return The difficulty band
 	 * @throws NullPointerException If the puzzle is null
 	 */
 	public Difficulty rate(Puzzle puzzle) {
@@ -57,11 +59,40 @@ public record DifficultyRater(DifficultyBands bands) {
 	}
 	
 	/**
+	 * Rates the given puzzle only as far as the given band, aborting early once it is provably harder.
+	 * <p>
+	 *     This is the generator's search probe. Rating a candidate against a target band does not need a number, it
+	 *     needs a direction, and a capped solve gives that far more cheaply: the strategies above the cap are never
+	 *     scanned at all. An empty result means "harder than {@code maxBand}" with no further detail, which is
+	 *     exactly what a bisection over the hole budget needs in order to dig less.
+	 * </p>
+	 *
+	 * @param puzzle The puzzle to rate
+	 * @param maxBand The hardest band to rate up to
+	 * @return The band, or empty if the puzzle is harder than {@code maxBand}
+	 * @throws NullPointerException If the puzzle or the band is null
+	 */
+	public Optional<Difficulty> rateUpTo(Puzzle puzzle, Difficulty maxBand) {
+		Objects.requireNonNull(puzzle, "Puzzle must not be null");
+		Objects.requireNonNull(maxBand, "Maximum band must not be null");
+		
+		TechniqueReport report = TechniqueSolver.solve(puzzle, maxBand.index());
+		// A stuck report is empty for the same reason a capped one is: the puzzle is harder than what was asked for.
+		// At a cap of LISA that means the puzzle is beyond the modelled technique set entirely, which is emphatically
+		// not the same thing as a genuine level-15 puzzle, and the generator must not hand it to a player as one.
+		// The uncapped rate(Puzzle) still reports LISA for such a grid, so no caller outside the search is affected.
+		if (report.exceededCap() || report.stuck()) {
+			return Optional.empty();
+		}
+		return Optional.of(this.bands.classify(puzzle.size(), report));
+	}
+	
+	/**
 	 * Classifies an already-computed technique report for a puzzle of the given size, without solving again.
 	 *
 	 * @param size The grid size the report belongs to
 	 * @param report The technique-solver report
-	 * @return The numbered difficulty band
+	 * @return The difficulty band
 	 * @throws NullPointerException If the size or report is null
 	 */
 	public Difficulty rate(GridSize size, TechniqueReport report) {

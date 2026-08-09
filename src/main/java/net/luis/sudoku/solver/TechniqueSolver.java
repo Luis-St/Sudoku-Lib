@@ -30,17 +30,54 @@ public final class TechniqueSolver {
 	 * the first of these that can make progress, so their order is the difficulty order the whole solver depends on.
 	 */
 	public static final List<TechniqueStrategy> STRATEGIES = List.of(
+		new FullHouse(),
+		new LastDigit(),
 		new NakedSingle(),
-		new HiddenSingle(),
+		new HiddenSingleRegion(),
+		new HiddenSingleLine(),
+		new Pointing(),
+		new Claiming(),
+		new LawOfLeftovers(),
 		new NakedPair(),
-		new NakedTriple(),
 		new HiddenPair(),
+		new NakedTriple(),
 		new HiddenTriple(),
-		new PointingPair(),
-		new BoxLineReduction(),
 		new XWing(),
+		new Skyscraper(),
+		new TwoStringKite(),
 		new Swordfish(),
-		new XyWing()
+		new BugPlusOne(),
+		new Crane(),
+		new XyWing(),
+		new UniqueRectangle1(),
+		new UniqueRectangle2(),
+		new XyzWing(),
+		new WWing(),
+		new FinnedXWing(),
+		new NakedQuad(),
+		new HiddenQuad(),
+		new UniqueRectangle3(),
+		new UniqueRectangle4(),
+		new EmptyRectangle(),
+		new FinnedSwordfish(),
+		new SashimiSwordfish(),
+		new Jellyfish(),
+		new SimpleColouring(),
+		new WxyzWing(),
+		new XChain(),
+		new XyChain(),
+		new Aic(),
+		new AlsXz(),
+		new SueDeCoq(),
+		new Medusa3d(),
+		new MultiColouring(),
+		new GroupedAic(),
+		new AlsChain(),
+		new Nishio(),
+		new ForcingChain(),
+		new ForcingNet(),
+		new DeathBlossom(),
+		new DynamicContradictionChain()
 	);
 	
 	private TechniqueSolver() {}
@@ -58,20 +95,50 @@ public final class TechniqueSolver {
 	 * @throws NullPointerException If the puzzle is null
 	 */
 	public static TechniqueReport solve(Puzzle puzzle) {
+		return solve(puzzle, Technique.MAX_LEVEL);
+	}
+	
+	/**
+	 * Solves the given puzzle using only techniques up to {@code maxLevel}, aborting as soon as it would need a
+	 * harder one.
+	 * <p>
+	 *     This is the early-abort form used by the generator's band search. Because the driver always applies the
+	 *     lowest applicable technique, "no technique at or below the cap applies" is a proof that the puzzle's rating
+	 *     is <b>above</b> the cap, and the report comes back {@link TechniqueReport#exceededCap() exceededCap}. The
+	 *     saving is that the harder strategies are never even scanned: rating against a low target never constructs a
+	 *     forcing chain. A cap of {@link Technique#MAX_LEVEL} is exactly {@link #solve(Puzzle)}.
+	 * </p>
+	 * <p>
+	 *     A capped report that exceeded its cap carries no usable rating — it says "harder than this" and nothing
+	 *     more — so {@link net.luis.sudoku.difficulty.DifficultyBands#classify} rejects it. The cheap "is this puzzle
+	 *     trivial" prefilter is just this method at a cap of 3.
+	 * </p>
+	 *
+	 * @param puzzle The puzzle to solve
+	 * @param maxLevel The hardest technique level the solver may use, {@code 1..}{@link Technique#MAX_LEVEL}
+	 * @return The solve report
+	 * @throws NullPointerException If the puzzle is null
+	 * @throws IllegalArgumentException If the level is outside {@code 1..}{@link Technique#MAX_LEVEL}
+	 */
+	public static TechniqueReport solve(Puzzle puzzle, int maxLevel) {
 		Objects.requireNonNull(puzzle, "Puzzle must not be null");
+		if (maxLevel < 1 || maxLevel > Technique.MAX_LEVEL) {
+			throw new IllegalArgumentException("Maximum level " + maxLevel + " is not in 1.." + Technique.MAX_LEVEL);
+		}
+		
 		CandidateGrid grid = new CandidateGrid(puzzle);
 		EnumMap<Technique, Integer> usage = new EnumMap<>(Technique.class);
 		
 		while (!grid.isComplete()) {
-			Deduction deduction = nextDeduction(grid);
+			Deduction deduction = nextDeduction(grid, maxLevel);
 			if (deduction == null) {
-				return new TechniqueReport(false, true, grid.values(), usage);
+				return new TechniqueReport(false, true, maxLevel < Technique.MAX_LEVEL, grid.values(), usage);
 			}
 			
 			deduction.applyTo(grid);
 			usage.merge(deduction.technique(), 1, Integer::sum);
 		}
-		return new TechniqueReport(grid.isSolved(), false, grid.values(), usage);
+		return new TechniqueReport(grid.isSolved(), false, false, grid.values(), usage);
 	}
 	
 	/**
@@ -92,7 +159,7 @@ public final class TechniqueSolver {
 		CandidateGrid grid = new CandidateGrid(puzzle);
 		Technique hardest = null;
 		while (!grid.isComplete()) {
-			Deduction deduction = nextDeduction(grid);
+			Deduction deduction = nextDeduction(grid, Technique.MAX_LEVEL);
 			if (deduction == null) {
 				return Optional.empty();
 			}
@@ -110,8 +177,14 @@ public final class TechniqueSolver {
 		return Optional.empty();
 	}
 	
-	private static Deduction nextDeduction(CandidateGrid grid) {
+	private static Deduction nextDeduction(CandidateGrid grid, int maxLevel) {
 		for (TechniqueStrategy strategy : STRATEGIES) {
+			// STRATEGIES is in escalating level order, so the first strategy above the cap ends the scan: everything
+			// after it is at least as hard. This is where the early abort actually saves its time.
+			if (strategy.technique().level() > maxLevel) {
+				return null;
+			}
+			
 			Optional<Deduction> deduction = strategy.find(grid);
 			if (deduction.isPresent()) {
 				return deduction.orElseThrow();
