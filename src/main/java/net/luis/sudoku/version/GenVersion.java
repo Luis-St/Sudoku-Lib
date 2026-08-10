@@ -26,7 +26,7 @@ public final class GenVersion {
 	 *     difficulty rater.
 	 * </p>
 	 */
-	public static final int CURRENT = 2;
+	public static final int CURRENT = 3;
 	
 	private GenVersion() {}
 }

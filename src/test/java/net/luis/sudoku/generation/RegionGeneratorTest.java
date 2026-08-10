@@ -2,7 +2,8 @@ package net.luis.sudoku.generation;
 
 import net.luis.sudoku.difficulty.Difficulty;
 import net.luis.sudoku.grid.*;
-import net.luis.sudoku.key.*;
+import net.luis.sudoku.key.KeyDerivation;
+import net.luis.sudoku.key.PuzzleKey;
 import net.luis.sudoku.rng.DeterministicRandom;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -149,12 +150,12 @@ class RegionGeneratorTest {
 		assertAll(java.util.stream.LongStream.of(8L, 22L).mapToObj(seed -> () -> {
 			PuzzleKey key = PuzzleKey.of(GridSize.SIXTEEN, Variant.CHAOS, Difficulty.FIVE, seed);
 			RegionGenerator.ChaosLayout layout = RegionGenerator.generateChaosLayout(GridSize.SIXTEEN, KeyDerivation.randomFor(key));
-
+			
 			assertNotNull(layout, "No layout for seed " + seed);
 			assertTrue(Puzzle.ofGivens(GridSize.SIXTEEN, Variant.CHAOS, layout.partition(), layout.solution()).isSolved(), "The layout for seed " + seed + " does not carry a solved grid");
 		}));
 	}
-
+	
 	@Test
 	void generateChaos_nullArguments_throw() {
 		assertAll(

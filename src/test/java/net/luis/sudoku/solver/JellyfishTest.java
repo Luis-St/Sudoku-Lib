@@ -14,14 +14,14 @@ import static org.junit.jupiter.api.Assertions.*;
 class JellyfishTest {
 	
 	/**
-	 * A generated TWELVE CHAOS puzzle (band LISA, seed 8) whose solve applies the technique 1 time(s).
+	 * A generated TWELVE CLASSIC puzzle (band LISA, seed 28) whose solve applies the technique 1 time(s).
 	 * <p>
-	 *     Pinned as a key rather than as givens: a jigsaw puzzle is not described by its givens alone,
-	 *     since the region layout is half of it, so the generator rebuilds the layout here.
+	 *     Pinned as a key rather than as givens, so that the fixture is re-derived from the generator that
+	 *     is actually shipping rather than frozen at whatever it produced once.
 	 * </p>
 	 */
 	private static Puzzle puzzle() {
-		return StrategyFixtures.generated(GridSize.TWELVE, Variant.CHAOS, Difficulty.LISA, 8L);
+		return StrategyFixtures.generated(GridSize.TWELVE, Variant.CLASSIC, Difficulty.LISA, 28L);
 	}
 	
 	@Test

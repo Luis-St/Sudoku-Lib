@@ -151,7 +151,11 @@ public final class PuzzleGenerator {
 		int ceiling = Math.min(maxHoles, key.size().cellCount());
 		GeneratedPuzzle closestBelow = null;
 		int closestBelowDistance = Integer.MAX_VALUE;
-		GeneratedPuzzle shallowestAbove = null;
+		// Held as its parts rather than as a GeneratedPuzzle, because the one thing a GeneratedPuzzle must carry is
+		// the band it rated and that is exactly what this candidate does not know yet: rateUpTo stopped at the target
+		// and reported only "harder than that". chooseFallback re-rates it if it ends up being the one returned.
+		Puzzle shallowestAbove = null;
+		int[] shallowestAboveSolution = null;
 		int shallowestAboveHoles = Integer.MAX_VALUE;
 		for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
 			int[] solution;
@@ -188,7 +192,8 @@ public final class PuzzleGenerator {
 				if (rated.isEmpty()) {
 					if (holes < shallowestAboveHoles) {
 						shallowestAboveHoles = holes;
-						shallowestAbove = new GeneratedPuzzle(key, puzzle, solution);
+						shallowestAbove = puzzle;
+						shallowestAboveSolution = solution;
 					}
 					most = holes - 1;
 					continue;
@@ -196,19 +201,19 @@ public final class PuzzleGenerator {
 				
 				Difficulty band = rated.orElseThrow();
 				if (band == target) {
-					return new GeneratedPuzzle(key, puzzle, solution);
+					return new GeneratedPuzzle(key, puzzle, solution, band);
 				}
 				
 				int distance = target.index() - band.index();
 				if (distance < closestBelowDistance) {
 					closestBelowDistance = distance;
-					closestBelow = new GeneratedPuzzle(key, puzzle, solution);
+					closestBelow = new GeneratedPuzzle(key, puzzle, solution, band);
 				}
 				fewest = holes + 1;
 			}
 		}
 		
-		GeneratedPuzzle fallback = chooseFallback(closestBelow, closestBelowDistance, shallowestAbove, target);
+		GeneratedPuzzle fallback = chooseFallback(key, closestBelow, closestBelowDistance, shallowestAbove, shallowestAboveSolution, target);
 		if (fallback == null) {
 			throw new IllegalStateException("Failed to generate any puzzle for " + key + " within " + MAX_ATTEMPTS + " attempts");
 		}
@@ -224,17 +229,28 @@ public final class PuzzleGenerator {
 	 *     a near miss from a wild one without paying for a full rating of a hard puzzle. Anything still above that
 	 *     cap is treated as three bands out, which loses to any nearer candidate below.
 	 * </p>
+	 * <p>
+	 *     The probe is also where the over-shooting candidate finally learns its own band, which is why it is carried
+	 *     here as a bare puzzle rather than as a {@link GeneratedPuzzle}. When even the probe cannot name it, the
+	 *     puzzle is rated once without a cap: that is the expensive path this method exists to avoid, but it is only
+	 *     reached when the over-shoot both wins the comparison and lies more than two bands above the target, and a
+	 *     puzzle handed out under a band nobody measured is worse than the rating it costs.
+	 * </p>
 	 */
-	private static GeneratedPuzzle chooseFallback(GeneratedPuzzle closestBelow, int closestBelowDistance, GeneratedPuzzle shallowestAbove, Difficulty target) {
+	private static GeneratedPuzzle chooseFallback(
+		PuzzleKey key, GeneratedPuzzle closestBelow, int closestBelowDistance, Puzzle shallowestAbove, int[] shallowestAboveSolution, Difficulty target
+	) {
 		if (shallowestAbove == null) {
 			return closestBelow;
 		}
 		
 		int probe = Math.min(target.index() + 2, Difficulty.LISA.index());
-		int aboveDistance = RATER.rateUpTo(shallowestAbove.puzzle(), Difficulty.ofIndex(probe))
-			.map(band -> band.index() - target.index())
-			.orElse(3);
-		return aboveDistance < closestBelowDistance ? shallowestAbove : closestBelow;
+		Optional<Difficulty> probed = RATER.rateUpTo(shallowestAbove, Difficulty.ofIndex(probe));
+		int aboveDistance = probed.map(band -> band.index() - target.index()).orElse(3);
+		if (aboveDistance >= closestBelowDistance) {
+			return closestBelow;
+		}
+		return new GeneratedPuzzle(key, shallowestAbove, shallowestAboveSolution, probed.orElseGet(() -> RATER.rate(shallowestAbove)));
 	}
 	
 	/**
@@ -269,21 +285,24 @@ public final class PuzzleGenerator {
 	 *     answer alongside — and a second field that can disagree with the first is a bug waiting to happen.
 	 * </p>
 	 * <p>
-	 *     The rated band is <b>not</b> re-derived. The key states which band was asked for and the sender rated what
-	 *     it actually produced; re-rating here would cost more than the decode it is attached to and could only
-	 *     disagree with a puzzle that is already in the player's hands.
+	 *     The rated band is <b>not</b> re-derived, which is why the sender has to state it. Re-rating here would cost
+	 *     far more than the decode it is attached to and could only disagree with a puzzle that is already in the
+	 *     player's hands. The overload without it falls back to the key's requested band, which is right only where
+	 *     the two cannot differ.
 	 * </p>
 	 *
 	 * @param key The key the givens belong to, which supplies the size, the variant and the chaos layout
 	 * @param givens One entry per cell in index order, {@code 0} for an empty cell
+	 * @param rated The band the sender rated this grid at, which is what {@link GeneratedPuzzle#rated()} reports
 	 * @return The rebuilt puzzle together with its derived solution
-	 * @throws NullPointerException If the key or the givens are null
+	 * @throws NullPointerException If the key, the givens or the rated band are null
 	 * @throws IllegalArgumentException If the givens do not match the key's size, contain an illegal digit, or do not
 	 * 		describe a uniquely solvable puzzle
 	 */
-	public static GeneratedPuzzle fromGivens(PuzzleKey key, int[] givens) {
+	public static GeneratedPuzzle fromGivens(PuzzleKey key, int[] givens, Difficulty rated) {
 		Objects.requireNonNull(key, "Key must not be null");
 		Objects.requireNonNull(givens, "Givens must not be null");
+		Objects.requireNonNull(rated, "Rated band must not be null");
 		if (givens.length != key.size().cellCount()) {
 			throw new IllegalArgumentException("Givens must hold " + key.size().cellCount() + " cells, but held " + givens.length);
 		}
@@ -294,21 +313,41 @@ public final class PuzzleGenerator {
 		}
 		
 		int[] solution = BacktrackingSolver.solve(puzzle).orElseThrow(() -> new IllegalArgumentException("Givens for " + key + " are not solvable"));
-		return new GeneratedPuzzle(key, puzzle, solution);
+		return new GeneratedPuzzle(key, puzzle, solution, rated);
+	}
+	
+	/**
+	 * Rebuilds a puzzle from givens whose rated band was never recorded, taking the key's requested band as the
+	 * rating.
+	 * <p>
+	 *     That assumption is safe only where the sender could not have produced anything else: a saved game the same
+	 *     build generated, or a share code, both of which name a band the generator hit. Where the sender <i>does</i>
+	 *     know what its search settled on — a pooled row, a match snapshot — pass it, because a generator that missed
+	 *     its target hands back a grid the key's band does not describe.
+	 * </p>
+	 *
+	 * @param key The key the givens belong to
+	 * @param givens One entry per cell in index order, {@code 0} for an empty cell
+	 * @return The rebuilt puzzle, rated at the key's requested band
+	 */
+	public static GeneratedPuzzle fromGivens(PuzzleKey key, int[] givens) {
+		Objects.requireNonNull(key, "Key must not be null");
+		return fromGivens(key, givens, key.difficulty());
 	}
 	
 	/**
 	 * Returns the band the generator should aim for given a key's requested difficulty.
 	 * <p>
-	 *     The request is clamped to the size's ceiling, because a small grid cannot reach a genuinely hard band
-	 *     (spec §4.3). {@link Difficulty#LISA} needs no special case: it is a rating of its own now — the puzzle must
-	 *     genuinely force a level-15 technique — and clamps like any other band on a size that cannot reach it.
+	 *     The request is snapped to what the key's size <i>and variant</i> can reach, because neither a small grid nor
+	 *     a 16x16 jigsaw can produce a genuinely hard band (spec §4.3). {@link Difficulty#LISA} needs no special case:
+	 *     it is a rating of its own now — the puzzle must genuinely force a level-15 technique — and snaps like any
+	 *     other band on a grid that cannot reach it.
 	 * </p>
 	 *
 	 * @param key The key being generated for
 	 * @return The target band
 	 */
 	private static Difficulty targetBandFor(PuzzleKey key) {
-		return RATER.bands().nearestSupported(key.size(), key.difficulty());
+		return RATER.bands().nearestSupported(key.size(), key.variant(), key.difficulty());
 	}
 }

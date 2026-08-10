@@ -72,7 +72,7 @@ public final class GenerationBench {
 	private static BandResult measure(Difficulty requested, GridSize size, Variant variant, int seeds) {
 		// A size need not support every band, and a request outside its set is snapped to the nearest one it does
 		// support. Scoring against the raw request would then report a deliberate, correct substitution as a miss.
-		Difficulty target = RATER.bands().nearestSupported(size, requested);
+		Difficulty target = RATER.bands().nearestSupported(size, variant, requested);
 		BandResult result = new BandResult();
 		result.substituted = target != requested;
 		for (long seed = 0; seed < seeds; seed++) {
@@ -84,7 +84,7 @@ public final class GenerationBench {
 			
 			// Uncapped, because the bench wants the real rating of what was returned, not the search's verdict.
 			TechniqueReport report = TechniqueSolver.solve(generated.puzzle());
-			Difficulty rated = RATER.rate(size, report);
+			Difficulty rated = RATER.rate(size, variant, report);
 			result.rated.merge(rated, 1, Integer::sum);
 			if (rated == target) {
 				result.hits++;

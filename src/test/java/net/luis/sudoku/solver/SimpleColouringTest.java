@@ -14,14 +14,14 @@ import static org.junit.jupiter.api.Assertions.*;
 class SimpleColouringTest {
 	
 	/**
-	 * A generated NINE CHAOS puzzle (band ELEVEN, seed 6) whose solve applies the technique 58 time(s).
+	 * A generated NINE CHAOS puzzle (band ELEVEN, seed 9) whose solve applies the technique 1 time(s).
 	 * <p>
 	 *     Pinned as a key rather than as givens: a jigsaw puzzle is not described by its givens alone,
 	 *     since the region layout is half of it, so the generator rebuilds the layout here.
 	 * </p>
 	 */
 	private static Puzzle puzzle() {
-		return StrategyFixtures.generated(GridSize.NINE, Variant.CHAOS, Difficulty.ELEVEN, 6L);
+		return StrategyFixtures.generated(GridSize.NINE, Variant.CHAOS, Difficulty.ELEVEN, 9L);
 	}
 	
 	@Test

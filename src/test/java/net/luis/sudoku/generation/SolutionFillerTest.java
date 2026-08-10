@@ -144,11 +144,11 @@ class SolutionFillerTest {
 	void fill_seedExceedingTheNodeBudget_restartsAndReturnsACompleteGrid() {
 		RegionPartition partition = classic(GridSize.SIXTEEN);
 		Optional<int[]> solution = SolutionFiller.fill(partition, new DeterministicRandom(120L));
-
+		
 		assertTrue(solution.isPresent(), "The restart path gave up on a fillable partition");
 		assertTrue(isSolved(GridSize.SIXTEEN, partition, solution.orElseThrow()), "The restart path returned an incomplete grid");
 	}
-
+	
 	/**
 	 * The non-vacuity guard for the test above: one attempt at the production budget really is not enough for
 	 * seed 120, so the empty result here is the budget being spent rather than the partition being unfillable.
@@ -156,10 +156,10 @@ class SolutionFillerTest {
 	@Test
 	void fill_seedExceedingTheNodeBudgetWithoutRestarts_returnsEmpty() {
 		RegionPartition partition = classic(GridSize.SIXTEEN);
-
+		
 		assertTrue(SolutionFiller.fill(partition, new DeterministicRandom(120L), 10_000_000L, 0).isEmpty(), "Seed 120 no longer exceeds one node budget, so the restart regression test is vacuous");
 	}
-
+	
 	/**
 	 * Drives the restart path on a budget small enough to hit constantly, so the mechanics are covered without
 	 * paying for the ten million node budget. Seed 1 blows a thousand-node budget on its first attempt.
@@ -167,14 +167,14 @@ class SolutionFillerTest {
 	@Test
 	void fill_injectedBudgetTooSmallForOneAttempt_restartsAndReturnsACompleteGrid() {
 		RegionPartition partition = classic(GridSize.SIXTEEN);
-
+		
 		assertTrue(SolutionFiller.fill(partition, new DeterministicRandom(1L), 1_000L, 0).isEmpty(), "Seed 1 fits inside a thousand nodes, so this test no longer forces a restart");
-
+		
 		Optional<int[]> solution = SolutionFiller.fill(partition, new DeterministicRandom(1L), 1_000L, 8);
 		assertTrue(solution.isPresent(), "Restarts did not recover from a tiny budget");
 		assertTrue(isSolved(GridSize.SIXTEEN, partition, solution.orElseThrow()), "The restart path returned an incomplete grid");
 	}
-
+	
 	/**
 	 * A search that proves the partition unfillable must not be retried. Restarting a proof cannot change it, and
 	 * spending every restart on it would make an unfillable chaos partition cost nine full searches instead of one.
@@ -184,16 +184,16 @@ class SolutionFillerTest {
 	void fill_unfillablePartition_doesNotSpendItsRestarts() {
 		RegionPartition partition = unfillableFour();
 		DeterministicRandom random = new DeterministicRandom(1L);
-
+		
 		assertTrue(SolutionFiller.fill(partition, random, 10_000_000L, 8).isEmpty(), "Filler completed an unfillable partition");
-
+		
 		// One attempt on a 4x4 draws a handful of values. Nine would draw noticeably more, so the stream position
 		// is the cheapest available witness that only one search ran.
 		DeterministicRandom single = new DeterministicRandom(1L);
 		SolutionFiller.fill(partition, single, 10_000_000L, 0);
 		assertEquals(single.nextLong(), random.nextLong(), "The unfillable partition was searched more than once");
 	}
-
+	
 	@Test
 	void fill_sameSeed_consumesTheSameNumberOfDraws() {
 		assertAll(Arrays.stream(GridSize.values()).map(size -> () -> {

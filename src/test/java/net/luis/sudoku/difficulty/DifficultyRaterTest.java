@@ -31,8 +31,18 @@ class DifficultyRaterTest {
 	void rate_lisaRequest_doesReturnLisa() {
 		// Lisa is a rating of its own now: level 15 names the techniques that assume a candidate and play the
 		// position out, so a Lisa request that lands is genuinely rated Lisa rather than clamped below it.
-		GeneratedPuzzle generated = PuzzleGenerator.generate(PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, Difficulty.LISA, 0L));
+		//
+		// The seed is searched for rather than pinned. Lisa is the hardest band and the generator misses it on
+		// some seeds by design, so a fixed seed asserts "this particular seed lands" - which is not the claim,
+		// and which every genVersion bump breaks, since the key's version feeds the random stream. Asking the
+		// generator which band it actually reached is exactly what GeneratedPuzzle.rated() is for.
+		GeneratedPuzzle generated = null;
+		for (long seed = 0; seed < 16 && generated == null; seed++) {
+			GeneratedPuzzle candidate = PuzzleGenerator.generate(PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, Difficulty.LISA, seed));
+			generated = candidate.rated() == Difficulty.LISA ? candidate : null;
+		}
 		
+		assertNotNull(generated, "no seed in the first 16 produced a Lisa 9x9 puzzle");
 		assertEquals(Difficulty.LISA, RATER.rate(generated.puzzle()));
 	}
 	
@@ -48,7 +58,7 @@ class DifficultyRaterTest {
 		Puzzle puzzle = PuzzleGenerator.generate(PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, Difficulty.TWO, 3L)).puzzle();
 		TechniqueReport report = TechniqueSolver.solve(puzzle);
 		
-		assertEquals(RATER.rate(puzzle), RATER.rate(GridSize.NINE, report));
+		assertEquals(RATER.rate(puzzle), RATER.rate(GridSize.NINE, Variant.CLASSIC, report));
 	}
 	
 	@Test

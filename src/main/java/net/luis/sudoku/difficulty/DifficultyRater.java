@@ -1,8 +1,7 @@
 package net.luis.sudoku.difficulty;
 
 import net.luis.sudoku.generation.PuzzleGenerator;
-import net.luis.sudoku.grid.GridSize;
-import net.luis.sudoku.grid.Puzzle;
+import net.luis.sudoku.grid.*;
 import net.luis.sudoku.solver.TechniqueReport;
 import net.luis.sudoku.solver.TechniqueSolver;
 
@@ -55,7 +54,7 @@ public record DifficultyRater(DifficultyBands bands) {
 	public Difficulty rate(Puzzle puzzle) {
 		Objects.requireNonNull(puzzle, "Puzzle must not be null");
 		TechniqueReport report = TechniqueSolver.solve(puzzle);
-		return this.bands.classify(puzzle.size(), report);
+		return this.bands.classify(puzzle.size(), puzzle.variant(), report);
 	}
 	
 	/**
@@ -84,21 +83,24 @@ public record DifficultyRater(DifficultyBands bands) {
 		if (report.exceededCap() || report.stuck()) {
 			return Optional.empty();
 		}
-		return Optional.of(this.bands.classify(puzzle.size(), report));
+		return Optional.of(this.bands.classify(puzzle.size(), puzzle.variant(), report));
 	}
 	
 	/**
-	 * Classifies an already-computed technique report for a puzzle of the given size, without solving again.
+	 * Classifies an already-computed technique report for a puzzle of the given size and variant, without solving
+	 * again.
 	 *
 	 * @param size The grid size the report belongs to
+	 * @param variant The region layout variant the report belongs to
 	 * @param report The technique-solver report
 	 * @return The difficulty band
-	 * @throws NullPointerException If the size or report is null
+	 * @throws NullPointerException If the size, the variant or the report is null
 	 */
-	public Difficulty rate(GridSize size, TechniqueReport report) {
+	public Difficulty rate(GridSize size, Variant variant, TechniqueReport report) {
 		Objects.requireNonNull(size, "Size must not be null");
+		Objects.requireNonNull(variant, "Variant must not be null");
 		Objects.requireNonNull(report, "Report must not be null");
-		return this.bands.classify(size, report);
+		return this.bands.classify(size, variant, report);
 	}
 	
 	/**

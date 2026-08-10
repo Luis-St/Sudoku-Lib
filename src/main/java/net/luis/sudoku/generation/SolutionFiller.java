@@ -44,7 +44,7 @@ import java.util.Optional;
  * @see RegionPartition
  */
 public final class SolutionFiller {
-
+	
 	/**
 	 * The number of search nodes one attempt may visit before it is abandoned and restarted with a fresh digit order.
 	 * <p>
@@ -89,7 +89,7 @@ public final class SolutionFiller {
 	 * </p>
 	 */
 	private static final int MAX_RESTARTS = 8;
-
+	
 	private SolutionFiller() {}
 	
 	/**
@@ -112,7 +112,7 @@ public final class SolutionFiller {
 	public static Optional<int[]> fill(RegionPartition partition, DeterministicRandom random) {
 		return fill(partition, random, NODE_BUDGET, MAX_RESTARTS);
 	}
-
+	
 	/**
 	 * The budgeted implementation behind {@link #fill(RegionPartition, DeterministicRandom)}, visible to the tests so
 	 * that the restart path can be forced with a budget small enough to hit on an ordinary grid. Production code must
@@ -132,7 +132,7 @@ public final class SolutionFiller {
 			if (fill.fill()) {
 				return Optional.of(fill.values());
 			}
-
+			
 			// A search that finished inside its budget has *proved* the partition admits no completion, and no
 			// amount of reshuffling changes a proof. Restarting only makes sense when the budget cut the search
 			// short, so the two outcomes must stay distinguishable: treating them alike would burn every restart
@@ -143,9 +143,9 @@ public final class SolutionFiller {
 		}
 		return Optional.empty();
 	}
-
+	
 	private static final class Fill {
-
+		
 		private final int n;
 		private final int cellCount;
 		private final int fullMask;
@@ -158,7 +158,7 @@ public final class SolutionFiller {
 		private final long nodeBudget;
 		private long nodes;
 		private boolean exhausted;
-
+		
 		private Fill(RegionPartition partition, DeterministicRandom random, long nodeBudget) {
 			GridSize size = partition.size();
 			this.n = size.n();
@@ -175,24 +175,24 @@ public final class SolutionFiller {
 			this.random = random;
 			this.nodeBudget = nodeBudget;
 		}
-
+		
 		private int[] values() {
 			return this.values;
 		}
-
+		
 		/**
 		 * Whether this attempt stopped because it ran out of budget rather than because it searched the tree out.
 		 */
 		private boolean exhausted() {
 			return this.exhausted;
 		}
-
+		
 		private boolean fill() {
 			if (++this.nodes > this.nodeBudget) {
 				this.exhausted = true;
 				return false;
 			}
-
+			
 			int cellIndex = this.selectCell();
 			if (cellIndex == -1) {
 				return true;
@@ -209,7 +209,7 @@ public final class SolutionFiller {
 					return true;
 				}
 				this.remove(cellIndex, bit, row, column, region);
-
+				
 				// Unwind the whole recursion once the budget is gone instead of falling through to the next digit,
 				// which would let every frame on the stack keep trying and turn one over-budget attempt into
 				// another full sweep of the tree.
