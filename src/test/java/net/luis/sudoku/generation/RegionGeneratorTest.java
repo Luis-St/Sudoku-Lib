@@ -1,6 +1,8 @@
 package net.luis.sudoku.generation;
 
+import net.luis.sudoku.difficulty.Difficulty;
 import net.luis.sudoku.grid.*;
+import net.luis.sudoku.key.*;
 import net.luis.sudoku.rng.DeterministicRandom;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -134,6 +136,25 @@ class RegionGeneratorTest {
 		assertThrows(IllegalArgumentException.class, () -> generate(GridSize.FOUR, 1L));
 	}
 	
+	/**
+	 * The end-to-end regression for the unbounded fill. Seeds 8 and 22 at 16x16 chaos band five are the two seeds
+	 * from a 32-seed sweep whose layout generation never returned: one of them was left running for 34 minutes at
+	 * full CPU, still inside {@code SolutionFiller}, before it was killed. Both complete in about 1.3 seconds now.
+	 * The timeout is what makes this a test rather than a hang, and it is deliberately far above the measured cost
+	 * so that a slow machine does not turn it into a flake.
+	 */
+	@Test
+	@Timeout(value = 60, unit = TimeUnit.SECONDS)
+	void generateChaosLayout_seedsThatPreviouslyNeverReturned_complete() {
+		assertAll(java.util.stream.LongStream.of(8L, 22L).mapToObj(seed -> () -> {
+			PuzzleKey key = PuzzleKey.of(GridSize.SIXTEEN, Variant.CHAOS, Difficulty.FIVE, seed);
+			RegionGenerator.ChaosLayout layout = RegionGenerator.generateChaosLayout(GridSize.SIXTEEN, KeyDerivation.randomFor(key));
+
+			assertNotNull(layout, "No layout for seed " + seed);
+			assertTrue(Puzzle.ofGivens(GridSize.SIXTEEN, Variant.CHAOS, layout.partition(), layout.solution()).isSolved(), "The layout for seed " + seed + " does not carry a solved grid");
+		}));
+	}
+
 	@Test
 	void generateChaos_nullArguments_throw() {
 		assertAll(
