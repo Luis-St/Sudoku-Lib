@@ -55,6 +55,37 @@ public final class LearnPuzzleCodec {
 	}
 
 	/**
+	 * Reads back what {@link #writeAll(List)} wrote.
+	 * <p>
+	 *     Anything outside the objects is ignored, so a caller can hand over a slice of a larger file rather than
+	 *     having to cut the array out of it exactly.
+	 * </p>
+	 *
+	 * @param json The JSON text holding the exercises
+	 * @return The exercises, in the order they appear, empty if there are none
+	 * @throws NullPointerException If the text is null
+	 * @throws IllegalArgumentException If an object in it is not in the written shape
+	 */
+	public static List<LearnPuzzle> readAll(String json) {
+		Objects.requireNonNull(json, "Json must not be null");
+
+		List<LearnPuzzle> puzzles = new ArrayList<>();
+		int at = json.indexOf(OBJECT_START);
+		while (at >= 0) {
+			int next = json.indexOf(OBJECT_START, at + 1);
+			puzzles.add(read(next < 0 ? json.substring(at) : json.substring(at, next)));
+			at = next;
+		}
+		return List.copyOf(puzzles);
+	}
+
+	/**
+	 * How one written exercise opens, which is what separates them inside an array. Every exercise starts with its
+	 * technique and holds no nested object before the next one begins, so finding these is enough to split them.
+	 */
+	private static final String OBJECT_START = "{\"technique\":";
+
+	/**
 	 * Writes one exercise as a JSON object.
 	 *
 	 * @param puzzle The exercise

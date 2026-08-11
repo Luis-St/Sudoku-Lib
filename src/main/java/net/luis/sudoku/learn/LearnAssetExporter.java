@@ -127,7 +127,7 @@ public final class LearnAssetExporter {
 
 		List<LearnPuzzle> all = new ArrayList<>(examples);
 		all.addAll(exercises);
-		Files.writeString(file, write(technique, examples, exercises), StandardCharsets.UTF_8);
+		Files.writeString(file, LearnAsset.write(new LearnAsset(technique, examples, exercises)), StandardCharsets.UTF_8);
 
 		// Reading every puzzle straight back is the only check that catches a format change before the asset reaches
 		// a device, where it would show as a learn area that simply refuses to open.
@@ -156,31 +156,12 @@ public final class LearnAssetExporter {
 		}
 
 		try {
-			String json = Files.readString(file, StandardCharsets.UTF_8);
-			int examples = json.indexOf("\"examples\":");
-			int exercises = json.indexOf("\"exercises\":");
-			if (examples < 0 || exercises < 0 || examples > exercises) {
-				return false;
-			}
-			return count(json.substring(examples, exercises)) == LearnContent.EXAMPLES_PER_TECHNIQUE
-				&& count(json.substring(exercises)) == LearnContent.EXERCISES_PER_TECHNIQUE;
-		} catch (IOException e) {
-			// A file that cannot be read is not a file worth keeping, so the technique is generated again.
+			return LearnAsset.read(Files.readString(file, StandardCharsets.UTF_8)).isComplete();
+		} catch (IOException | IllegalArgumentException e) {
+			// A file that cannot be read, or that is not an export at all, is not one worth keeping: the technique is
+			// simply generated again.
 			return false;
 		}
-	}
-
-	/**
-	 * Counts the puzzles in one array of the written format, each of which opens with its technique.
-	 */
-	private static int count(String json) {
-		int count = 0;
-		int at = json.indexOf("{\"technique\":");
-		while (at >= 0) {
-			count++;
-			at = json.indexOf("{\"technique\":", at + 1);
-		}
-		return count;
 	}
 
 	/**
@@ -195,18 +176,7 @@ public final class LearnAssetExporter {
 		Objects.requireNonNull(directory, "Directory must not be null");
 		Objects.requireNonNull(technique, "Technique must not be null");
 
-		return directory.resolve(technique.name().toLowerCase() + ".json");
-	}
-
-	/**
-	 * Writes one technique's file: its examples and its exercises, kept apart because they are used for different
-	 * things and the app asks for one or the other, never both.
-	 */
-	private static String write(Technique technique, List<LearnPuzzle> examples, List<LearnPuzzle> exercises) {
-		return "{\n\"technique\":\"" + technique.name() + "\",\n"
-			+ "\"level\":" + technique.level() + ",\n"
-			+ "\"examples\":" + LearnPuzzleCodec.writeAll(examples) + ",\n"
-			+ "\"exercises\":" + LearnPuzzleCodec.writeAll(exercises) + "\n}\n";
+		return directory.resolve(LearnAsset.fileNameOf(technique));
 	}
 
 	/**
