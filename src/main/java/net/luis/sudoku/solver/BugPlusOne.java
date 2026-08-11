@@ -1,5 +1,7 @@
 package net.luis.sudoku.solver;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -63,6 +65,32 @@ public final class BugPlusOne implements TechniqueStrategy {
 		
 		int target = extraCell;
 		return this.oddDigit(grid, target).map(digit -> new Deduction.Placement(Technique.BUG_PLUS_ONE, target, digit));
+	}
+	
+	/**
+	 * Explains the grave by showing the extra cell against the sea of two-candidate cells around it, which is the
+	 * observation the whole argument rests on.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The placement and its explanation, or empty if the grid is not in the BUG+1 shape
+	 */
+	@Override
+	public Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
+		return this.find(grid).map(deduction -> {
+			Deduction.Placement placement = (Deduction.Placement) deduction;
+			List<PatternCell> biValue = new ArrayList<>();
+			for (int cell = 0; cell < grid.cellCount(); cell++) {
+				if (grid.isEmpty(cell) && cell != placement.cell()) {
+					biValue.add(new PatternCell(cell, CellRole.CONTEXT, grid.candidates(cell)));
+				}
+			}
+			
+			return new ExplainedDeduction(deduction, Explanation.builder(Technique.BUG_PLUS_ONE)
+				.pattern(0, biValue)
+				.implication(placement.digit(), List.of(new PatternCell(placement.cell(), CellRole.PATTERN, grid.candidates(placement.cell()))))
+				.conclusion(deduction)
+				.build());
+		});
 	}
 	
 	/**

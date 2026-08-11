@@ -1,5 +1,6 @@
 package net.luis.sudoku.solver;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -63,5 +64,44 @@ public final class FullHouse implements TechniqueStrategy {
 			}
 		}
 		return Optional.empty();
+	}
+
+	/**
+	 * Explains the full house by outlining the unit that is one cell short and showing every digit already in it, so
+	 * the missing one is the only thing left to say.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The placement and its explanation, or empty if no unit has a single empty cell
+	 */
+	@Override
+	public Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
+		return this.find(grid).map(deduction -> {
+			Deduction.Placement placement = (Deduction.Placement) deduction;
+			int cell = placement.cell();
+			// The unit the argument was made in, found the same way the scan found it: the first of the cell's three
+			// units with exactly one empty cell. Rows are checked before columns before regions, matching allUnits().
+			UnitRef unit = null;
+			int[] unitCells = null;
+			for (UnitRef candidate : Explanations.unitsOf(grid, cell)) {
+				int[] cells = candidate.cells(grid);
+				int empty = 0;
+				for (int member : cells) {
+					if (grid.isEmpty(member)) {
+						empty++;
+					}
+				}
+				if (empty == 1) {
+					unit = candidate;
+					unitCells = cells;
+					break;
+				}
+			}
+
+			return new ExplainedDeduction(deduction, Explanation.builder(Technique.FULL_HOUSE)
+				.focusUnits(0, List.of(unit))
+				.pattern(0, Explanations.filledOf(grid, unitCells))
+				.conclusion(deduction)
+				.build());
+		});
 	}
 }

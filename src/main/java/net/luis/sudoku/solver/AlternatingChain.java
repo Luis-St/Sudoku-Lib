@@ -73,6 +73,24 @@ abstract sealed class AlternatingChain implements TechniqueStrategy permits XCha
 	 */
 	@Override
 	public final Optional<Deduction> find(CandidateGrid grid) {
+		return this.scan(grid, null);
+	}
+
+	/**
+	 * Explains the chain by walking it link by link: assume the first end does not hold its digit, and every strong
+	 * link along the way forces the next candidate, until the far end is forced instead. One of the two ends is
+	 * therefore true, which is what the conclusion rests on.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The eliminations and their explanation, or empty if no chain makes progress
+	 */
+	@Override
+	public final Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
+		Explanation.Builder builder = Explanation.builder(this.technique);
+		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
+	}
+
+	private Optional<Deduction> scan(CandidateGrid grid, Explanation.Builder explanation) {
 		List<int[]> nodes = this.buildNodes(grid);
 		int[] digits = new int[nodes.size()];
 		for (int index = 0; index < nodes.size(); index++) {
@@ -87,7 +105,7 @@ abstract sealed class AlternatingChain implements TechniqueStrategy permits XCha
 		for (int start = 0; start < nodes.size(); start++) {
 			onChain[start] = true;
 			chain[0] = start;
-			Optional<Deduction> found = this.extend(grid, nodes, digits, strong, weak, onChain, chain, 1, start);
+			Optional<Deduction> found = this.extend(grid, nodes, digits, strong, weak, onChain, chain, 1, start, explanation);
 			onChain[start] = false;
 			if (found.isPresent()) {
 				return found;
@@ -102,7 +120,7 @@ abstract sealed class AlternatingChain implements TechniqueStrategy permits XCha
 	 * @param length How many nodes the chain currently holds
 	 * @param start The node the chain began at, which is one of the two ends
 	 */
-	private Optional<Deduction> extend(CandidateGrid grid, List<int[]> nodes, int[] digits, List<List<Integer>> strong, List<List<Integer>> weak, boolean[] onChain, int[] chain, int length, int start) {
+	private Optional<Deduction> extend(CandidateGrid grid, List<int[]> nodes, int[] digits, List<List<Integer>> strong, List<List<Integer>> weak, boolean[] onChain, int[] chain, int length, int start, Explanation.Builder explanation) {
 		int last = chain[length - 1];
 		for (int next : strong.get(last)) {
 			if (onChain[next]) {
@@ -112,7 +130,7 @@ abstract sealed class AlternatingChain implements TechniqueStrategy permits XCha
 			onChain[next] = true;
 			chain[length] = next;
 			
-			Optional<Deduction> found = this.conclude(grid, nodes, digits, start, next);
+			Optional<Deduction> found = this.conclude(grid, nodes, digits, start, next, chain, length, explanation);
 			if (found.isPresent()) {
 				onChain[next] = false;
 				return found;
@@ -126,7 +144,7 @@ abstract sealed class AlternatingChain implements TechniqueStrategy permits XCha
 					
 					onChain[bridge] = true;
 					chain[length + 1] = bridge;
-					Optional<Deduction> deeper = this.extend(grid, nodes, digits, strong, weak, onChain, chain, length + 2, start);
+					Optional<Deduction> deeper = this.extend(grid, nodes, digits, strong, weak, onChain, chain, length + 2, start, explanation);
 					onChain[bridge] = false;
 					if (deeper.isPresent()) {
 						onChain[next] = false;
@@ -142,7 +160,7 @@ abstract sealed class AlternatingChain implements TechniqueStrategy permits XCha
 	/**
 	 * Applies the three end-relation rules to a finished chain.
 	 */
-	private Optional<Deduction> conclude(CandidateGrid grid, List<int[]> nodes, int[] digits, int start, int end) {
+	private Optional<Deduction> conclude(CandidateGrid grid, List<int[]> nodes, int[] digits, int start, int end, int[] chain, int length, Explanation.Builder explanation) {
 		int[] first = nodes.get(start);
 		int[] second = nodes.get(end);
 		EliminationBuilder builder = new EliminationBuilder();
@@ -165,7 +183,57 @@ abstract sealed class AlternatingChain implements TechniqueStrategy permits XCha
 		}
 		
 		builder.sortByCell();
-		return builder.build(this.technique);
+		Optional<Deduction> deduction = builder.build(this.technique);
+		// Only a chain that removes something is the deduction being returned, so only that one is worth explaining:
+		// any earlier one was walked and abandoned.
+		if (deduction.isPresent() && explanation != null) {
+			this.explain(nodes, digits, chain, length, explanation);
+		}
+		return deduction;
+	}
+	
+	/**
+	 * Records the chain: the digit if the whole chain is about one, then each strong link in turn with its two ends
+	 * shown as assumed false and assumed true, and finally the pair of chain ends one of which must be true.
+	 *
+	 * @param nodes The node list
+	 * @param digits The digit of each node
+	 * @param chain The node indices of the chain, alternating along its links
+	 * @param length The index of the chain's last node
+	 * @param explanation The explanation to record into
+	 */
+	private void explain(List<int[]> nodes, int[] digits, int[] chain, int length, Explanation.Builder explanation) {
+		if (this.singleDigit) {
+			explanation.focusDigit(digits[chain[0]]);
+		}
+		
+		// The chain alternates from its first node: assumed false, forced true across a strong link, forced false
+		// across the weak bridge that follows, and so on to the far end.
+		for (int index = 0; index + 1 <= length; index += 2) {
+			int from = chain[index];
+			int to = chain[index + 1];
+			List<PatternCell> cells = new ArrayList<>();
+			this.addNode(cells, nodes.get(from), digits[from], CellRole.LINK_OFF);
+			this.addNode(cells, nodes.get(to), digits[to], CellRole.LINK_ON);
+			explanation.link(digits[from] == digits[to] ? digits[from] : 0, cells);
+		}
+		
+		int first = chain[0];
+		int last = chain[length];
+		List<PatternCell> ends = new ArrayList<>();
+		this.addNode(ends, nodes.get(first), digits[first], CellRole.LINK_ON);
+		this.addNode(ends, nodes.get(last), digits[last], CellRole.LINK_ON);
+		explanation.implication(digits[first] == digits[last] ? digits[first] : 0, ends);
+	}
+	
+	/**
+	 * Adds one node's cells in the given role. A grouped node covers several cells that act as one candidate, so all
+	 * of them are shown together.
+	 */
+	private void addNode(List<PatternCell> cells, int[] node, int digit, CellRole role) {
+		for (int index = 1; index < node.length; index++) {
+			cells.add(PatternCell.of(node[index], role, digit));
+		}
 	}
 	
 	/**

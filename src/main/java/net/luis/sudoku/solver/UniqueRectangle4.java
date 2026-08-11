@@ -1,5 +1,6 @@
 package net.luis.sudoku.solver;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -25,7 +26,7 @@ public final class UniqueRectangle4 extends UniqueRectangle {
 	}
 	
 	@Override
-	Optional<Deduction> test(CandidateGrid grid, int[] corners, int pair) {
+	Optional<Deduction> test(CandidateGrid grid, int[] corners, int pair, Explanation.Builder explanation) {
 		int[] roof = this.roofOf(grid, corners, pair);
 		if (roof == null) {
 			return Optional.empty();
@@ -34,7 +35,8 @@ public final class UniqueRectangle4 extends UniqueRectangle {
 		int first = Integer.numberOfTrailingZeros(pair);
 		int second = Integer.numberOfTrailingZeros(pair & (pair - 1));
 		for (int locked : new int[] { first, second }) {
-			if (!this.isLockedToRoof(grid, roof, locked)) {
+			int[] lockingUnit = this.lockingUnit(grid, roof, locked);
+			if (lockingUnit == null) {
 				continue;
 			}
 			
@@ -44,7 +46,17 @@ public final class UniqueRectangle4 extends UniqueRectangle {
 			builder.add(grid, roof[1], removed);
 			
 			Optional<Deduction> found = builder.build(Technique.UNIQUE_RECTANGLE_4);
+			// Only a rectangle that removes something is the deduction being returned, so only that one is worth
+			// explaining: any earlier one was looked at and rejected.
 			if (found.isPresent()) {
+				if (explanation != null) {
+					this.explainRectangle(grid, corners, pair, explanation);
+					// The locked digit is certainly used by one of the roof corners, so the other one taking the
+					// pair's other digit would leave all four corners filled from the pair alone.
+					explanation.focusDigit(locked)
+						.focusUnits(locked, List.of(Explanations.refOf(grid, lockingUnit, roof[0])))
+						.implication(locked, List.of(PatternCell.of(roof[0], CellRole.LINK_ON, locked), PatternCell.of(roof[1], CellRole.LINK_ON, locked)));
+				}
 				return found;
 			}
 		}
@@ -52,9 +64,10 @@ public final class UniqueRectangle4 extends UniqueRectangle {
 	}
 	
 	/**
-	 * Checks whether some unit holding both roof corners confines the digit to exactly those two cells.
+	 * Returns the first unit holding both roof corners that confines the digit to exactly those two cells, or null if
+	 * no unit does.
 	 */
-	private boolean isLockedToRoof(CandidateGrid grid, int[] roof, int digit) {
+	private int[] lockingUnit(CandidateGrid grid, int[] roof, int digit) {
 		for (int[] unit : grid.allUnits()) {
 			if (!this.contains(unit, roof[0]) || !this.contains(unit, roof[1])) {
 				continue;
@@ -68,10 +81,10 @@ public final class UniqueRectangle4 extends UniqueRectangle {
 			}
 			
 			if (seen == 2) {
-				return true;
+				return unit;
 			}
 		}
-		return false;
+		return null;
 	}
 	
 	private boolean contains(int[] unit, int cell) {

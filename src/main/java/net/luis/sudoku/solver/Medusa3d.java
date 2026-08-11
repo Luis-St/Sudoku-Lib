@@ -1,5 +1,6 @@
 package net.luis.sudoku.solver;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -45,13 +46,30 @@ public final class Medusa3d implements TechniqueStrategy {
 	 */
 	@Override
 	public Optional<Deduction> find(CandidateGrid grid) {
+		return this.scan(grid, null);
+	}
+
+	/**
+	 * Explains the Medusa by painting the whole cluster in its two colours and then showing which rule fired: a colour
+	 * that contradicts itself, or a candidate the true colour covers whichever colour that is.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The eliminations and their explanation, or empty if no cluster makes progress
+	 */
+	@Override
+	public Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
+		Explanation.Builder builder = Explanation.builder(Technique.MEDUSA_3D);
+		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
+	}
+
+	private Optional<Deduction> scan(CandidateGrid grid, Explanation.Builder explanation) {
 		for (Colourings.Cluster cluster : Colourings.ofGrid(grid)) {
-			Optional<Deduction> contradiction = this.contradiction(grid, cluster);
+			Optional<Deduction> contradiction = this.contradiction(grid, cluster, explanation);
 			if (contradiction.isPresent()) {
 				return contradiction;
 			}
 			
-			Optional<Deduction> trapped = this.trapped(grid, cluster);
+			Optional<Deduction> trapped = this.trapped(grid, cluster, explanation);
 			if (trapped.isPresent()) {
 				return trapped;
 			}
@@ -63,7 +81,7 @@ public final class Medusa3d implements TechniqueStrategy {
 	 * Finds a colour that contradicts itself — twice in one cell, or twice for one digit in one unit — and removes
 	 * every candidate painted with it.
 	 */
-	private Optional<Deduction> contradiction(CandidateGrid grid, Colourings.Cluster cluster) {
+	private Optional<Deduction> contradiction(CandidateGrid grid, Colourings.Cluster cluster, Explanation.Builder explanation) {
 		int[] cells = cluster.cells();
 		int[] digits = cluster.digits();
 		int[] colours = cluster.colours();
@@ -87,7 +105,18 @@ public final class Medusa3d implements TechniqueStrategy {
 				}
 				
 				Optional<Deduction> found = builder.build(Technique.MEDUSA_3D);
+				// Only a cluster that removes something is the deduction being returned, so only that one is worth
+				// explaining: any earlier one was looked at and rejected.
 				if (found.isPresent()) {
+					if (explanation != null) {
+						this.paint(cluster, explanation);
+						// One colour twice in a cell, or twice for one digit in a unit: that colour cannot be the true
+						// one, so everything wearing it goes.
+						explanation.implication(0, List.of(
+							PatternCell.of(cells[i], CellRole.CONTEXT, digits[i]),
+							PatternCell.of(cells[j], CellRole.CONTEXT, digits[j])
+						));
+					}
 					return found;
 				}
 			}
@@ -98,7 +127,7 @@ public final class Medusa3d implements TechniqueStrategy {
 	/**
 	 * Removes every uncoloured candidate that the true colour covers whichever colour that turns out to be.
 	 */
-	private Optional<Deduction> trapped(CandidateGrid grid, Colourings.Cluster cluster) {
+	private Optional<Deduction> trapped(CandidateGrid grid, Colourings.Cluster cluster, Explanation.Builder explanation) {
 		EliminationBuilder builder = new EliminationBuilder();
 		for (int cell = 0; cell < grid.cellCount(); cell++) {
 			if (!grid.isEmpty(cell)) {
@@ -120,7 +149,44 @@ public final class Medusa3d implements TechniqueStrategy {
 				}
 			}
 		}
-		return builder.build(Technique.MEDUSA_3D);
+		Optional<Deduction> deduction = builder.build(Technique.MEDUSA_3D);
+		if (deduction.isPresent() && explanation != null) {
+			this.paint(cluster, explanation);
+			// One trapped candidate carries the whole argument: it is covered by a candidate of each colour, so the
+			// true colour rules it out either way.
+			Deduction.Eliminations eliminations = (Deduction.Eliminations) deduction.orElseThrow();
+			int cell = eliminations.cells()[0];
+			int digit = eliminations.digits()[0];
+			explanation.implication(digit, List.of(this.witness(grid, cluster, cell, digit, 0), this.witness(grid, cluster, cell, digit, 1)));
+		}
+		return deduction;
+	}
+	
+	/**
+	 * Records the cluster itself: every candidate in it, painted in the two colours.
+	 */
+	private void paint(Colourings.Cluster cluster, Explanation.Builder explanation) {
+		explanation.pattern(0, Explanations.painted(cluster.cells(), cluster.digits(), cluster.colours()));
+	}
+	
+	/**
+	 * Returns the candidate of the given colour that covers the trapped candidate: one sharing its cell, or one of its
+	 * own digit that it sees.
+	 */
+	private PatternCell witness(CandidateGrid grid, Colourings.Cluster cluster, int cell, int digit, int colour) {
+		int[] cells = cluster.cells();
+		int[] digits = cluster.digits();
+		int[] colours = cluster.colours();
+		for (int index = 0; index < cells.length; index++) {
+			if (colours[index] != colour) {
+				continue;
+			}
+			
+			if (cells[index] == cell || (digits[index] == digit && grid.peers(cell, cells[index]))) {
+				return PatternCell.of(cells[index], CellRole.CONTEXT, digits[index]);
+			}
+		}
+		throw new IllegalStateException("Candidate " + digit + " in cell " + cell + " was trapped without a witness of colour " + colour);
 	}
 	
 	private boolean inCell(Colourings.Cluster cluster, int cell, int colour) {

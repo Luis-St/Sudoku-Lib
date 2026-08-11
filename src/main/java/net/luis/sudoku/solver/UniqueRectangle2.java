@@ -1,5 +1,6 @@
 package net.luis.sudoku.solver;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -24,7 +25,7 @@ public final class UniqueRectangle2 extends UniqueRectangle {
 	}
 	
 	@Override
-	Optional<Deduction> test(CandidateGrid grid, int[] corners, int pair) {
+	Optional<Deduction> test(CandidateGrid grid, int[] corners, int pair, Explanation.Builder explanation) {
 		int[] roof = this.roofOf(grid, corners, pair);
 		if (roof == null) {
 			return Optional.empty();
@@ -37,6 +38,16 @@ public final class UniqueRectangle2 extends UniqueRectangle {
 		}
 		
 		int digit = Integer.numberOfTrailingZeros(extraA);
-		return ConjugateLinks.eliminateSeenByBoth(grid, digit, roof[0], roof[1], Technique.UNIQUE_RECTANGLE_2, corners);
+		Optional<Deduction> deduction = ConjugateLinks.eliminateSeenByBoth(grid, digit, roof[0], roof[1], Technique.UNIQUE_RECTANGLE_2, corners);
+		// Only a rectangle that removes something is the deduction being returned, so only that one is worth
+		// explaining: any earlier one was looked at and rejected.
+		if (deduction.isPresent() && explanation != null) {
+			this.explainRectangle(grid, corners, pair, explanation);
+			// If neither roof corner used the extra digit, all four corners would be down to the pair and the
+			// rectangle would be deadly, so one of the two has to hold it.
+			explanation.focusDigit(digit)
+				.implication(digit, List.of(PatternCell.of(roof[0], CellRole.LINK_ON, digit), PatternCell.of(roof[1], CellRole.LINK_ON, digit)));
+		}
+		return deduction;
 	}
 }

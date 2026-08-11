@@ -41,6 +41,23 @@ public final class TwoStringKite implements TechniqueStrategy {
 	 */
 	@Override
 	public Optional<Deduction> find(CandidateGrid grid) {
+		return this.scan(grid, null);
+	}
+
+	/**
+	 * Explains the kite as the two-link chain it is: the digit, the row and the column it is confined to, the link
+	 * along each of them, and the pair of far ends one of which must therefore hold it.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The eliminations and their explanation, or empty if the pattern makes no progress anywhere
+	 */
+	@Override
+	public Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
+		Explanation.Builder builder = Explanation.builder(Technique.TWO_STRING_KITE);
+		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
+	}
+
+	private Optional<Deduction> scan(CandidateGrid grid, Explanation.Builder explanation) {
 		int n = grid.n();
 		for (int digit = 1; digit <= n; digit++) {
 			for (int row = 0; row < n; row++) {
@@ -55,7 +72,7 @@ public final class TwoStringKite implements TechniqueStrategy {
 						continue;
 					}
 					
-					Optional<Deduction> found = this.test(grid, digit, rowPair, columnPair);
+					Optional<Deduction> found = this.test(grid, digit, rowPair, columnPair, explanation);
 					if (found.isPresent()) {
 						return found;
 					}
@@ -65,7 +82,7 @@ public final class TwoStringKite implements TechniqueStrategy {
 		return Optional.empty();
 	}
 	
-	private Optional<Deduction> test(CandidateGrid grid, int digit, int[] rowPair, int[] columnPair) {
+	private Optional<Deduction> test(CandidateGrid grid, int digit, int[] rowPair, int[] columnPair, Explanation.Builder explanation) {
 		for (int i = 0; i < 2; i++) {
 			for (int j = 0; j < 2; j++) {
 				int rowNear = rowPair[i];
@@ -83,7 +100,13 @@ public final class TwoStringKite implements TechniqueStrategy {
 				}
 				
 				Optional<Deduction> found = ConjugateLinks.eliminateSeenByBoth(grid, digit, rowFar, columnFar, Technique.TWO_STRING_KITE, rowNear, columnNear);
+				// Only a configuration that removes something is the deduction being returned, so only that one is
+				// worth explaining: any earlier one was looked at and rejected.
 				if (found.isPresent()) {
+					if (explanation != null) {
+						// End to end: along the row to the near end, across the shared region, and out along the column.
+						Explanations.chain(grid, digit, new int[] { rowFar, rowNear, columnNear, columnFar }, explanation);
+					}
 					return found;
 				}
 			}

@@ -1,5 +1,7 @@
 package net.luis.sudoku.solver;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -58,5 +60,31 @@ public final class LastDigit implements TechniqueStrategy {
 			}
 		}
 		return Optional.empty();
+	}
+
+	/**
+	 * Explains the last digit by showing every cell that already holds it, which is the count the argument rests on.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The placement and its explanation, or empty if no digit is down to its final cell
+	 */
+	@Override
+	public Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
+		return this.find(grid).map(deduction -> {
+			Deduction.Placement placement = (Deduction.Placement) deduction;
+			int digit = placement.digit();
+			List<PatternCell> placedCells = new ArrayList<>();
+			for (int cell = 0; cell < grid.cellCount(); cell++) {
+				if (grid.value(cell) == digit) {
+					placedCells.add(PatternCell.of(cell, CellRole.CONTEXT, digit));
+				}
+			}
+
+			return new ExplainedDeduction(deduction, Explanation.builder(Technique.LAST_DIGIT)
+				.focusDigit(digit)
+				.pattern(digit, placedCells)
+				.conclusion(deduction)
+				.build());
+		});
 	}
 }

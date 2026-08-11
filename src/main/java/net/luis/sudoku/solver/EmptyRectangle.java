@@ -1,5 +1,7 @@
 package net.luis.sudoku.solver;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -44,9 +46,26 @@ public final class EmptyRectangle implements TechniqueStrategy {
 	 */
 	@Override
 	public Optional<Deduction> find(CandidateGrid grid) {
+		return this.scan(grid, null);
+	}
+
+	/**
+	 * Explains the Empty Rectangle by showing the region's L, the two arms the digit is therefore confined to, and the
+	 * conjugate pair that closes both of them off at once if the eliminated cell held the digit.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The elimination and its explanation, or empty if the pattern makes no progress anywhere
+	 */
+	@Override
+	public Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
+		Explanation.Builder builder = Explanation.builder(Technique.EMPTY_RECTANGLE);
+		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
+	}
+
+	private Optional<Deduction> scan(CandidateGrid grid, Explanation.Builder explanation) {
 		for (int digit = 1; digit <= grid.n(); digit++) {
 			for (int region = 0; region < grid.partition().regionCount(); region++) {
-				Optional<Deduction> found = this.scanRegion(grid, digit, region);
+				Optional<Deduction> found = this.scanRegion(grid, digit, region, explanation);
 				if (found.isPresent()) {
 					return found;
 				}
@@ -55,7 +74,7 @@ public final class EmptyRectangle implements TechniqueStrategy {
 		return Optional.empty();
 	}
 	
-	private Optional<Deduction> scanRegion(CandidateGrid grid, int digit, int region) {
+	private Optional<Deduction> scanRegion(CandidateGrid grid, int digit, int region, Explanation.Builder explanation) {
 		int n = grid.n();
 		for (int row = 0; row < n; row++) {
 			for (int column = 0; column < n; column++) {
@@ -63,12 +82,12 @@ public final class EmptyRectangle implements TechniqueStrategy {
 					continue;
 				}
 				
-				Optional<Deduction> byRow = this.eliminate(grid, digit, region, row, column, true);
+				Optional<Deduction> byRow = this.eliminate(grid, digit, region, row, column, true, explanation);
 				if (byRow.isPresent()) {
 					return byRow;
 				}
 				
-				Optional<Deduction> byColumn = this.eliminate(grid, digit, region, row, column, false);
+				Optional<Deduction> byColumn = this.eliminate(grid, digit, region, row, column, false, explanation);
 				if (byColumn.isPresent()) {
 					return byColumn;
 				}
@@ -110,7 +129,7 @@ public final class EmptyRectangle implements TechniqueStrategy {
 	 *
 	 * @param throughRow True to hinge on the L's row, false to hinge on its column
 	 */
-	private Optional<Deduction> eliminate(CandidateGrid grid, int digit, int region, int row, int column, boolean throughRow) {
+	private Optional<Deduction> eliminate(CandidateGrid grid, int digit, int region, int row, int column, boolean throughRow, Explanation.Builder explanation) {
 		int n = grid.n();
 		for (int line = 0; line < n; line++) {
 			// The conjugate pair runs across the L's arm, so it must lie off the L's own line.
@@ -141,12 +160,48 @@ public final class EmptyRectangle implements TechniqueStrategy {
 				EliminationBuilder builder = new EliminationBuilder();
 				builder.add(grid, victim, digit);
 				Optional<Deduction> found = builder.build(Technique.EMPTY_RECTANGLE);
+				// Only a configuration that removes something is the deduction being returned, so only that one is
+				// worth explaining: any earlier one was looked at and rejected.
 				if (found.isPresent()) {
+					if (explanation != null) {
+						this.explain(grid, digit, region, row, column, anchor, target, explanation);
+					}
 					return found;
 				}
 			}
 		}
 		return Optional.empty();
+	}
+	
+	/**
+	 * Records the pattern: the region and the L its candidates form, the two arms the digit is therefore confined to,
+	 * and the conjugate pair whose far end would clash with the far arm.
+	 *
+	 * @param grid The working grid
+	 * @param digit The digit the pattern is about
+	 * @param region The region holding the L
+	 * @param row The L's row
+	 * @param column The L's column
+	 * @param anchor The end of the conjugate pair standing on the L's far arm
+	 * @param target The other end, the one the eliminated cell sees
+	 * @param explanation The explanation to record into
+	 */
+	private void explain(CandidateGrid grid, int digit, int region, int row, int column, int anchor, int target, Explanation.Builder explanation) {
+		List<PatternCell> hinge = new ArrayList<>();
+		for (int cell : grid.regionCells(region)) {
+			if (grid.hasCandidate(cell, digit)) {
+				hinge.add(PatternCell.of(cell, CellRole.BASE, digit));
+			}
+		}
+		
+		explanation.focusDigit(digit)
+			.focusUnits(digit, List.of(UnitRef.region(region)))
+			.pattern(digit, hinge)
+			.focusUnits(digit, List.of(UnitRef.row(row), UnitRef.column(column)))
+			// If the eliminated cell held the digit, the pair's near end could not, so its far end would - and that
+			// far end stands on the very arm the region would then be forced onto.
+			.link(digit, List.of(PatternCell.of(target, CellRole.LINK_OFF, digit), PatternCell.of(anchor, CellRole.LINK_ON, digit)))
+			.implication(digit, List.of(PatternCell.of(anchor, CellRole.CONTEXT, digit)));
 	}
 	
 	private int[] pairOf(CandidateGrid grid, int[] lineCells, int digit) {

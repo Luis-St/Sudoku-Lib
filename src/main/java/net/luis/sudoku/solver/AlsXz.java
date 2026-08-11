@@ -40,6 +40,23 @@ public final class AlsXz implements TechniqueStrategy {
 	 */
 	@Override
 	public Optional<Deduction> find(CandidateGrid grid) {
+		return this.scan(grid, null);
+	}
+
+	/**
+	 * Explains the pair by showing both sets with the digits they span, the restricted common only one of them can
+	 * use, and the second shared digit that one of them therefore certainly holds.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The eliminations and their explanation, or empty if no pair makes progress
+	 */
+	@Override
+	public Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
+		Explanation.Builder builder = Explanation.builder(Technique.ALS_XZ);
+		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
+	}
+
+	private Optional<Deduction> scan(CandidateGrid grid, Explanation.Builder explanation) {
 		List<AlmostLockedSets.Als> sets = AlmostLockedSets.of(grid);
 		for (int i = 0; i < sets.size(); i++) {
 			AlmostLockedSets.Als first = sets.get(i);
@@ -54,7 +71,7 @@ public final class AlsXz implements TechniqueStrategy {
 					continue;
 				}
 				
-				Optional<Deduction> found = this.eliminate(grid, first, second, restricted);
+				Optional<Deduction> found = this.eliminate(grid, first, second, restricted, explanation);
 				if (found.isPresent()) {
 					return found;
 				}
@@ -63,7 +80,7 @@ public final class AlsXz implements TechniqueStrategy {
 		return Optional.empty();
 	}
 	
-	private Optional<Deduction> eliminate(CandidateGrid grid, AlmostLockedSets.Als first, AlmostLockedSets.Als second, int restricted) {
+	private Optional<Deduction> eliminate(CandidateGrid grid, AlmostLockedSets.Als first, AlmostLockedSets.Als second, int restricted, Explanation.Builder explanation) {
 		// Any shared digit other than the restricted common is certainly used by one of the two sets.
 		int candidates = first.mask() & second.mask() & ~restricted;
 		while (candidates != 0) {
@@ -71,10 +88,36 @@ public final class AlsXz implements TechniqueStrategy {
 			candidates &= candidates - 1;
 			
 			Optional<Deduction> found = AlmostLockedSets.eliminateSeenBy(grid, digit, Technique.ALS_XZ, first, second);
+			// Only a pair that removes something is the deduction being returned, so only that one is worth
+			// explaining: any earlier one was looked at and rejected.
 			if (found.isPresent()) {
+				if (explanation != null) {
+					this.explain(grid, first, second, Integer.numberOfTrailingZeros(restricted), digit, explanation);
+				}
 				return found;
 			}
 		}
 		return Optional.empty();
+	}
+	
+	/**
+	 * Records the pattern: the two sets, the restricted common that only one of them can use, and the shared digit
+	 * that one of them is therefore left holding.
+	 *
+	 * @param grid The working grid
+	 * @param first The first set
+	 * @param second The other set
+	 * @param restricted The restricted common digit
+	 * @param digit The shared digit being eliminated elsewhere
+	 * @param explanation The explanation to record into
+	 */
+	private void explain(CandidateGrid grid, AlmostLockedSets.Als first, AlmostLockedSets.Als second, int restricted, int digit, Explanation.Builder explanation) {
+		explanation.pattern(0, AlmostLockedSets.cellsOf(grid, first, CellRole.BASE))
+			.pattern(0, AlmostLockedSets.cellsOf(grid, second, CellRole.COVER))
+			// Every occurrence of the restricted common across the two sets sees every other, so at most one set uses
+			// it - which leaves the other one locked.
+			.focusDigit(restricted)
+			.link(restricted, AlmostLockedSets.occurrencesOf(grid, restricted, CellRole.CONTEXT, first, second))
+			.implication(digit, AlmostLockedSets.occurrencesOf(grid, digit, CellRole.LINK_ON, first, second));
 	}
 }

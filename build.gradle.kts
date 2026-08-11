@@ -113,3 +113,25 @@ tasks.test {
 	// Lets the strategy soundness sweep be widened on demand: ./gradlew test -Psoundness.seeds=12
 	project.findProperty("soundness.seeds")?.let { systemProperty("soundness.seeds", it) }
 }
+
+/**
+ * Generates the learn area's bundled exercises and writes them into the Android module's assets.
+ *
+ * This is a development-time task, run by hand and its output committed, not part of `build`. Finding the rarer
+ * positions takes minutes, and the whole point of shipping them as assets is that no device ever has to.
+ *
+ *   ./gradlew exportLearnAssets
+ *   ./gradlew exportLearnAssets -Plearn.resume=true      # skip techniques already written
+ *   ./gradlew exportLearnAssets -Plearn.out=/some/path
+ */
+tasks.register<JavaExec>("exportLearnAssets") {
+	group = "learn"
+	description = "Generates the learn area exercises into the Android assets directory."
+
+	mainClass.set("net.luis.sudoku.learn.LearnAssetExporter")
+	classpath = sourceSets["main"].runtimeClasspath
+
+	val output = project.findProperty("learn.out")?.toString() ?: "../Sudoku-Android/app/src/main/assets/learn"
+	val resume = project.findProperty("learn.resume")?.toString() == "true"
+	args = if (resume) listOf(output, "--resume") else listOf(output)
+}

@@ -1,5 +1,7 @@
 package net.luis.sudoku.solver;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -44,12 +46,26 @@ public final class WxyzWing implements TechniqueStrategy {
 	@Override
 	public Optional<Deduction> find(CandidateGrid grid) {
 		int[] group = new int[4];
-		return this.search(grid, group, 0, 0, 0);
+		return this.search(grid, group, 0, 0, 0, null);
+	}
+
+	/**
+	 * Explains the wing by showing the four cells and the four digits they span, and naming the one digit that is not
+	 * used up by the others, which one of the cells therefore has to hold.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The eliminations and their explanation, or empty if the pattern makes no progress anywhere
+	 */
+	@Override
+	public Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
+		Explanation.Builder builder = Explanation.builder(Technique.WXYZ_WING);
+		int[] group = new int[4];
+		return this.search(grid, group, 0, 0, 0, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
 	}
 	
-	private Optional<Deduction> search(CandidateGrid grid, int[] group, int depth, int start, int union) {
+	private Optional<Deduction> search(CandidateGrid grid, int[] group, int depth, int start, int union, Explanation.Builder explanation) {
 		if (depth == 4) {
-			return Integer.bitCount(union) == 4 ? this.test(grid, group, union) : Optional.empty();
+			return Integer.bitCount(union) == 4 ? this.test(grid, group, union, explanation) : Optional.empty();
 		}
 		if (Integer.bitCount(union) > 4) {
 			return Optional.empty();
@@ -67,7 +83,7 @@ public final class WxyzWing implements TechniqueStrategy {
 			}
 			
 			group[depth] = cell;
-			Optional<Deduction> found = this.search(grid, group, depth + 1, cell + 1, union | grid.candidates(cell));
+			Optional<Deduction> found = this.search(grid, group, depth + 1, cell + 1, union | grid.candidates(cell), explanation);
 			if (found.isPresent()) {
 				return found;
 			}
@@ -88,7 +104,7 @@ public final class WxyzWing implements TechniqueStrategy {
 	 * Tests a complete group: exactly one of its four digits may be unrestricted, and that digit is the one the wing
 	 * eliminates.
 	 */
-	private Optional<Deduction> test(CandidateGrid grid, int[] group, int union) {
+	private Optional<Deduction> test(CandidateGrid grid, int[] group, int union, Explanation.Builder explanation) {
 		int unrestricted = 0;
 		int remaining = union;
 		while (remaining != 0) {
@@ -105,7 +121,7 @@ public final class WxyzWing implements TechniqueStrategy {
 		if (unrestricted == 0) {
 			return Optional.empty();
 		}
-		return this.eliminate(grid, group, unrestricted);
+		return this.eliminate(grid, group, unrestricted, explanation);
 	}
 	
 	/**
@@ -127,7 +143,7 @@ public final class WxyzWing implements TechniqueStrategy {
 		return true;
 	}
 	
-	private Optional<Deduction> eliminate(CandidateGrid grid, int[] group, int digit) {
+	private Optional<Deduction> eliminate(CandidateGrid grid, int[] group, int digit, Explanation.Builder explanation) {
 		EliminationBuilder builder = new EliminationBuilder();
 		for (int cell = 0; cell < grid.cellCount(); cell++) {
 			if (this.inGroup(group, cell)) {
@@ -146,7 +162,40 @@ public final class WxyzWing implements TechniqueStrategy {
 				builder.add(grid, cell, digit);
 			}
 		}
-		return builder.build(Technique.WXYZ_WING);
+		Optional<Deduction> deduction = builder.build(Technique.WXYZ_WING);
+		// Only a group that removes something is the deduction being returned, so only that one is worth explaining:
+		// any earlier one was looked at and rejected.
+		if (deduction.isPresent() && explanation != null) {
+			this.explain(grid, group, digit, explanation);
+		}
+		return deduction;
+	}
+	
+	/**
+	 * Records the pattern: the four cells with the digits they span, and the cells among them that could hold the
+	 * unrestricted digit, one of which has to.
+	 *
+	 * @param grid The working grid
+	 * @param group The four cells
+	 * @param digit The unrestricted digit
+	 * @param explanation The explanation to record into
+	 */
+	private void explain(CandidateGrid grid, int[] group, int digit, Explanation.Builder explanation) {
+		List<PatternCell> cells = new ArrayList<>(group.length);
+		List<PatternCell> holders = new ArrayList<>();
+		for (int member : group) {
+			boolean holds = grid.hasCandidate(member, digit);
+			cells.add(new PatternCell(member, holds ? CellRole.WING : CellRole.PATTERN, grid.candidates(member)));
+			if (holds) {
+				holders.add(PatternCell.of(member, CellRole.LINK_ON, digit));
+			}
+		}
+		
+		explanation.pattern(0, cells)
+			.focusDigit(digit)
+			// The other three digits can be used once each across the group, so they cannot fill four cells on their
+			// own: one of the cells listing this digit has to hold it.
+			.implication(digit, holders);
 	}
 	
 	private boolean inGroup(int[] group, int cell) {

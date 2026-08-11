@@ -1,5 +1,7 @@
 package net.luis.sudoku.solver;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -70,18 +72,33 @@ abstract sealed class BasicFish implements TechniqueStrategy permits XWing, Swor
 	 */
 	@Override
 	public final Optional<Deduction> find(CandidateGrid grid) {
-		Optional<Deduction> rows = this.scan(grid, true);
+		Optional<Deduction> rows = this.scan(grid, true, null);
 		if (rows.isPresent()) {
 			return rows;
 		}
-		return this.scan(grid, false);
+		return this.scan(grid, false, null);
+	}
+	
+	/**
+	 * Explains the fish by showing the digit, the base lines it is confined to, the cover lines it therefore fills,
+	 * and any fin that spoils the exact pattern without spoiling the conclusion.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The eliminations and their explanation, or empty if no fish makes progress
+	 */
+	@Override
+	public final Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
+		Explanation.Builder builder = Explanation.builder(this.technique);
+		Optional<Deduction> rows = this.scan(grid, true, builder);
+		Optional<Deduction> found = rows.isPresent() ? rows : this.scan(grid, false, builder);
+		return found.map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
 	}
 	
 	/**
 	 * Scans one orientation. When {@code rowForm} is true the base sets are rows and the cover sets are columns;
 	 * otherwise the roles are swapped.
 	 */
-	private Optional<Deduction> scan(CandidateGrid grid, boolean rowForm) {
+	private Optional<Deduction> scan(CandidateGrid grid, boolean rowForm, Explanation.Builder explanation) {
 		int n = grid.n();
 		int[] lineMasks = new int[n];
 		for (int digit = 1; digit <= n; digit++) {
@@ -90,7 +107,7 @@ abstract sealed class BasicFish implements TechniqueStrategy permits XWing, Swor
 			}
 			
 			int[] base = new int[this.fishSize];
-			Optional<Deduction> found = this.search(grid, rowForm, digit, lineMasks, base, 0, 0, 0);
+			Optional<Deduction> found = this.search(grid, rowForm, digit, lineMasks, base, 0, 0, 0, explanation);
 			if (found.isPresent()) {
 				return found;
 			}
@@ -101,9 +118,9 @@ abstract sealed class BasicFish implements TechniqueStrategy permits XWing, Swor
 	/**
 	 * Enumerates base-line combinations in ascending order and tests each complete one.
 	 */
-	private Optional<Deduction> search(CandidateGrid grid, boolean rowForm, int digit, int[] lineMasks, int[] base, int depth, int start, int union) {
+	private Optional<Deduction> search(CandidateGrid grid, boolean rowForm, int digit, int[] lineMasks, int[] base, int depth, int start, int union, Explanation.Builder explanation) {
 		if (depth == this.fishSize) {
-			return this.test(grid, rowForm, digit, lineMasks, base, union);
+			return this.test(grid, rowForm, digit, lineMasks, base, union, explanation);
 		}
 		
 		int limit = this.fishSize + (this.finMode == FinMode.NONE ? 0 : MAX_FIN_LINES);
@@ -119,7 +136,7 @@ abstract sealed class BasicFish implements TechniqueStrategy permits XWing, Swor
 			}
 			
 			base[depth] = line;
-			Optional<Deduction> found = this.search(grid, rowForm, digit, lineMasks, base, depth + 1, line + 1, union | lineMasks[line]);
+			Optional<Deduction> found = this.search(grid, rowForm, digit, lineMasks, base, depth + 1, line + 1, union | lineMasks[line], explanation);
 			if (found.isPresent()) {
 				return found;
 			}
@@ -130,38 +147,38 @@ abstract sealed class BasicFish implements TechniqueStrategy permits XWing, Swor
 	/**
 	 * Tests one complete base-line combination for this strategy's fin form.
 	 */
-	private Optional<Deduction> test(CandidateGrid grid, boolean rowForm, int digit, int[] lineMasks, int[] base, int union) {
+	private Optional<Deduction> test(CandidateGrid grid, boolean rowForm, int digit, int[] lineMasks, int[] base, int union, Explanation.Builder explanation) {
 		int extra = Integer.bitCount(union) - this.fishSize;
 		if (this.finMode == FinMode.NONE) {
-			return extra == 0 ? this.eliminate(grid, rowForm, digit, base, union, -1) : Optional.empty();
+			return extra == 0 ? this.eliminate(grid, rowForm, digit, base, union, -1, 0, explanation) : Optional.empty();
 		}
 		if (extra < 1 || extra > MAX_FIN_LINES) {
 			return Optional.empty();
 		}
-		return this.searchFins(grid, rowForm, digit, lineMasks, base, union, extra);
+		return this.searchFins(grid, rowForm, digit, lineMasks, base, union, extra, explanation);
 	}
 	
 	/**
 	 * Enumerates which cover lines the fins stick out into, and tests whether those fins share a single region.
 	 */
-	private Optional<Deduction> searchFins(CandidateGrid grid, boolean rowForm, int digit, int[] lineMasks, int[] base, int union, int finCount) {
+	private Optional<Deduction> searchFins(CandidateGrid grid, boolean rowForm, int digit, int[] lineMasks, int[] base, int union, int finCount, Explanation.Builder explanation) {
 		int[] positions = this.bits(union);
 		int[] chosen = new int[finCount];
-		return this.searchFinPositions(grid, rowForm, digit, lineMasks, base, union, positions, chosen, 0, 0);
+		return this.searchFinPositions(grid, rowForm, digit, lineMasks, base, union, positions, chosen, 0, 0, explanation);
 	}
 	
-	private Optional<Deduction> searchFinPositions(CandidateGrid grid, boolean rowForm, int digit, int[] lineMasks, int[] base, int union, int[] positions, int[] chosen, int depth, int start) {
+	private Optional<Deduction> searchFinPositions(CandidateGrid grid, boolean rowForm, int digit, int[] lineMasks, int[] base, int union, int[] positions, int[] chosen, int depth, int start, Explanation.Builder explanation) {
 		if (depth == chosen.length) {
 			int finMask = 0;
 			for (int position : chosen) {
 				finMask |= 1 << position;
 			}
-			return this.testFinned(grid, rowForm, digit, lineMasks, base, union & ~finMask, finMask);
+			return this.testFinned(grid, rowForm, digit, lineMasks, base, union & ~finMask, finMask, explanation);
 		}
 		
 		for (int index = start; index <= positions.length - (chosen.length - depth); index++) {
 			chosen[depth] = positions[index];
-			Optional<Deduction> found = this.searchFinPositions(grid, rowForm, digit, lineMasks, base, union, positions, chosen, depth + 1, index + 1);
+			Optional<Deduction> found = this.searchFinPositions(grid, rowForm, digit, lineMasks, base, union, positions, chosen, depth + 1, index + 1, explanation);
 			if (found.isPresent()) {
 				return found;
 			}
@@ -173,7 +190,7 @@ abstract sealed class BasicFish implements TechniqueStrategy permits XWing, Swor
 	 * Tests one split of the union into a cover set and a fin set: the fins must all share a region, every base line
 	 * must keep at least one candidate in the cover, and the sashimi form must match what this strategy accepts.
 	 */
-	private Optional<Deduction> testFinned(CandidateGrid grid, boolean rowForm, int digit, int[] lineMasks, int[] base, int cover, int finMask) {
+	private Optional<Deduction> testFinned(CandidateGrid grid, boolean rowForm, int digit, int[] lineMasks, int[] base, int cover, int finMask, Explanation.Builder explanation) {
 		int finRegion = -1;
 		boolean sashimi = false;
 		for (int line : base) {
@@ -203,15 +220,17 @@ abstract sealed class BasicFish implements TechniqueStrategy permits XWing, Swor
 		if (this.finMode != FinMode.ANY_FINNED && sashimi != (this.finMode == FinMode.SASHIMI)) {
 			return Optional.empty();
 		}
-		return this.eliminate(grid, rowForm, digit, base, cover, finRegion);
+		return this.eliminate(grid, rowForm, digit, base, cover, finRegion, finMask, explanation);
 	}
 	
 	/**
 	 * Removes the digit from the cover cells outside the base lines, restricted to the fin's region for a finned fish.
 	 *
 	 * @param finRegion The region every fin lies in, or {@code -1} for a finless fish
+	 * @param finMask The cover positions the fins stick out into, or {@code 0} for a finless fish
+	 * @param explanation The explanation to record the pattern into, or null
 	 */
-	private Optional<Deduction> eliminate(CandidateGrid grid, boolean rowForm, int digit, int[] base, int cover, int finRegion) {
+	private Optional<Deduction> eliminate(CandidateGrid grid, boolean rowForm, int digit, int[] base, int cover, int finRegion, int finMask, Explanation.Builder explanation) {
 		EliminationBuilder builder = new EliminationBuilder();
 		int remaining = cover;
 		while (remaining != 0) {
@@ -230,7 +249,65 @@ abstract sealed class BasicFish implements TechniqueStrategy permits XWing, Swor
 		}
 		
 		builder.sortByCell();
-		return builder.build(this.technique);
+		Optional<Deduction> deduction = builder.build(this.technique);
+		// Only a fish that removes something is the deduction being returned; explaining any other would describe a
+		// pattern the solver looked at and rejected.
+		if (deduction.isPresent() && explanation != null) {
+			this.explain(grid, rowForm, digit, base, cover, finMask, explanation);
+		}
+		return deduction;
+	}
+	
+	/**
+	 * Records the fish: the digit, the base lines that confine it, the candidates on them, the cover lines those
+	 * candidates fill, and the fins if there are any.
+	 *
+	 * @param grid The working grid
+	 * @param rowForm True if the base sets are rows
+	 * @param digit The digit the fish is about
+	 * @param base The base lines
+	 * @param cover The cover positions
+	 * @param finMask The cover positions the fins stick out into, {@code 0} if finless
+	 * @param explanation The explanation to record into
+	 */
+	private void explain(CandidateGrid grid, boolean rowForm, int digit, int[] base, int cover, int finMask, Explanation.Builder explanation) {
+		List<UnitRef> baseUnits = new ArrayList<>(base.length);
+		for (int line : base) {
+			baseUnits.add(rowForm ? UnitRef.row(line) : UnitRef.column(line));
+		}
+		
+		List<UnitRef> coverUnits = new ArrayList<>();
+		for (int position : this.bits(cover)) {
+			coverUnits.add(rowForm ? UnitRef.column(position) : UnitRef.row(position));
+		}
+		
+		List<PatternCell> corners = new ArrayList<>();
+		List<PatternCell> fins = new ArrayList<>();
+		for (int line : base) {
+			int[] lineCells = rowForm ? grid.rowCells(line) : grid.columnCells(line);
+			for (int cell : lineCells) {
+				if (!grid.hasCandidate(cell, digit)) {
+					continue;
+				}
+				
+				int position = rowForm ? grid.columnOf(cell) : grid.rowOf(cell);
+				if ((finMask & (1 << position)) != 0) {
+					fins.add(PatternCell.of(cell, CellRole.FIN, digit));
+				} else if ((cover & (1 << position)) != 0) {
+					corners.add(PatternCell.of(cell, CellRole.BASE, digit));
+				}
+			}
+		}
+		
+		explanation.focusDigit(digit)
+			.focusUnits(digit, baseUnits)
+			.pattern(digit, corners)
+			.focusUnits(digit, coverUnits);
+		// A fin is what separates the finned and sashimi fish from the plain one, so it gets its own beat rather than
+		// being folded into the pattern: the conclusion is narrower precisely because of it.
+		if (!fins.isEmpty()) {
+			explanation.implication(digit, fins);
+		}
 	}
 	
 	private int lineMask(CandidateGrid grid, boolean rowForm, int line, int digit) {

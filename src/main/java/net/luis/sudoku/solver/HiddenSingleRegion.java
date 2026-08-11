@@ -41,4 +41,16 @@ public final class HiddenSingleRegion implements TechniqueStrategy {
 	public Optional<Deduction> find(CandidateGrid grid) {
 		return HiddenSingles.scan(grid, grid.regions(), Technique.HIDDEN_SINGLE_REGION);
 	}
+	
+	/**
+	 * Explains the single as cross-hatching: the region, and the digit already placed in the row or column of every
+	 * other empty cell of it.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The placement and its explanation, or empty if there is none
+	 */
+	@Override
+	public Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
+		return HiddenSingles.scanExplained(grid, grid.regions(), Technique.HIDDEN_SINGLE_REGION);
+	}
 }

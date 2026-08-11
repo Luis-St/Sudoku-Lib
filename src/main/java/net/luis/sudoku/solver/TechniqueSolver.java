@@ -177,6 +177,53 @@ public final class TechniqueSolver {
 		return Optional.empty();
 	}
 	
+	/**
+	 * Returns the deduction the driver would make next on the given working grid, without applying it.
+	 * <p>
+	 *     This is {@link #solve(Puzzle)}'s inner step, exposed so a caller can drive the solve itself while watching
+	 *     what happens. The learn area needs exactly that: it walks a puzzle forwards looking for the position in
+	 *     which one chosen technique is the easiest thing that applies, and it has to see each deduction to recognise
+	 *     that moment.
+	 * </p>
+	 * <p>
+	 *     Because the driver always returns the lowest-ranked technique that makes progress, a returned deduction of
+	 *     technique {@code T} is a proof that <b>no</b> technique easier than {@code T} applies to this grid.
+	 * </p>
+	 *
+	 * @param grid The working grid, which is not mutated
+	 * @return The next deduction, or an empty optional if no technique applies
+	 * @throws NullPointerException If the grid is null
+	 */
+	public static Optional<Deduction> nextDeduction(CandidateGrid grid) {
+		Objects.requireNonNull(grid, "Grid must not be null");
+
+		return Optional.ofNullable(nextDeduction(grid, Technique.MAX_LEVEL));
+	}
+
+	/**
+	 * Returns the deduction the driver would make next using only techniques up to {@code maxLevel}, without applying
+	 * it.
+	 * <p>
+	 *     An empty result is the useful half: it proves that <b>nothing</b> at or below the given level applies to
+	 *     this grid. The learn area asks exactly that question, to establish that a position really does need the
+	 *     technique it is about to teach and cannot be solved past with anything easier.
+	 * </p>
+	 *
+	 * @param grid The working grid, which is not mutated
+	 * @param maxLevel The hardest technique level to consider, {@code 1..}{@link Technique#MAX_LEVEL}
+	 * @return The next deduction, or an empty optional if nothing at or below that level applies
+	 * @throws NullPointerException If the grid is null
+	 * @throws IllegalArgumentException If the level is outside {@code 1..}{@link Technique#MAX_LEVEL}
+	 */
+	public static Optional<Deduction> nextDeductionUpTo(CandidateGrid grid, int maxLevel) {
+		Objects.requireNonNull(grid, "Grid must not be null");
+		if (maxLevel < 1 || maxLevel > Technique.MAX_LEVEL) {
+			throw new IllegalArgumentException("Maximum level " + maxLevel + " is not in 1.." + Technique.MAX_LEVEL);
+		}
+
+		return Optional.ofNullable(nextDeduction(grid, maxLevel));
+	}
+
 	private static Deduction nextDeduction(CandidateGrid grid, int maxLevel) {
 		for (TechniqueStrategy strategy : STRATEGIES) {
 			// STRATEGIES is in escalating level order, so the first strategy above the cap ends the scan: everything

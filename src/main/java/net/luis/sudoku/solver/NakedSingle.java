@@ -1,5 +1,6 @@
 package net.luis.sudoku.solver;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -40,5 +41,26 @@ public final class NakedSingle implements TechniqueStrategy {
 			}
 		}
 		return Optional.empty();
+	}
+
+	/**
+	 * Explains the single by showing what emptied the cell: its three units, and the peer that rules out each of the
+	 * digits it no longer has.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The placement and its explanation, or empty if no cell has collapsed to a single candidate
+	 */
+	@Override
+	public Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
+		return this.find(grid).map(deduction -> {
+			Deduction.Placement placement = (Deduction.Placement) deduction;
+			int cell = placement.cell();
+			return new ExplainedDeduction(deduction, Explanation.builder(Technique.NAKED_SINGLE)
+				.focusUnits(0, Explanations.unitsOf(grid, cell))
+				.pattern(placement.digit(), List.of(PatternCell.of(cell, CellRole.PATTERN, placement.digit())))
+				.implication(0, Explanations.blockersFor(grid, cell, placement.digit()))
+				.conclusion(deduction)
+				.build());
+		});
 	}
 }

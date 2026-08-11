@@ -1,5 +1,7 @@
 package net.luis.sudoku.solver;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -55,6 +57,23 @@ abstract sealed class UniqueRectangle implements TechniqueStrategy permits Uniqu
 	 */
 	@Override
 	public final Optional<Deduction> find(CandidateGrid grid) {
+		return this.scan(grid, null);
+	}
+
+	/**
+	 * Explains the rectangle: the four corners and the pair that would make them deadly, followed by whatever the
+	 * concrete type concludes from how far this rectangle already is from that.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The eliminations and their explanation, or empty if this type proves nothing anywhere
+	 */
+	@Override
+	public final Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
+		Explanation.Builder builder = Explanation.builder(this.technique);
+		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
+	}
+
+	private Optional<Deduction> scan(CandidateGrid grid, Explanation.Builder explanation) {
 		int n = grid.n();
 		for (int topRow = 0; topRow < n; topRow++) {
 			for (int bottomRow = topRow + 1; bottomRow < n; bottomRow++) {
@@ -71,7 +90,7 @@ abstract sealed class UniqueRectangle implements TechniqueStrategy permits Uniqu
 							continue;
 						}
 						
-						Optional<Deduction> found = this.scanPairs(grid, corners);
+						Optional<Deduction> found = this.scanPairs(grid, corners, explanation);
 						if (found.isPresent()) {
 							return found;
 						}
@@ -103,7 +122,7 @@ abstract sealed class UniqueRectangle implements TechniqueStrategy permits Uniqu
 		return second != -1 && firstCount == 2;
 	}
 	
-	private Optional<Deduction> scanPairs(CandidateGrid grid, int[] corners) {
+	private Optional<Deduction> scanPairs(CandidateGrid grid, int[] corners, Explanation.Builder explanation) {
 		for (int corner : corners) {
 			if (!grid.isEmpty(corner)) {
 				return Optional.empty();
@@ -121,7 +140,7 @@ abstract sealed class UniqueRectangle implements TechniqueStrategy permits Uniqu
 					continue;
 				}
 				
-				Optional<Deduction> found = this.test(grid, corners, (1 << a) | (1 << b));
+				Optional<Deduction> found = this.test(grid, corners, (1 << a) | (1 << b), explanation);
 				if (found.isPresent()) {
 					return found;
 				}
@@ -136,9 +155,36 @@ abstract sealed class UniqueRectangle implements TechniqueStrategy permits Uniqu
 	 * @param grid The working grid
 	 * @param corners The four corners, ordered top-left, top-right, bottom-left, bottom-right
 	 * @param pair The bitmask of the two shared digits
+	 * @param explanation The explanation to record the pattern into, or null to skip recording entirely
 	 * @return The elimination this type proves for the rectangle, or empty
 	 */
-	abstract Optional<Deduction> test(CandidateGrid grid, int[] corners, int pair);
+	abstract Optional<Deduction> test(CandidateGrid grid, int[] corners, int pair, Explanation.Builder explanation);
+
+	/**
+	 * Records the beats every type shares: the two rows and two columns the rectangle stands on, and its four corners
+	 * split into the floor that is bare and the roof that carries the extra candidates.
+	 * <p>
+	 *     A type 1 rectangle has three floor corners and one roof corner, the others have two of each, so the split is
+	 *     read off the candidates rather than assumed.
+	 * </p>
+	 *
+	 * @param grid The working grid
+	 * @param corners The four corners
+	 * @param pair The bitmask of the two shared digits
+	 * @param explanation The explanation to record into
+	 */
+	final void explainRectangle(CandidateGrid grid, int[] corners, int pair, Explanation.Builder explanation) {
+		List<PatternCell> cells = new ArrayList<>(corners.length);
+		for (int corner : corners) {
+			boolean bare = (grid.candidates(corner) & ~pair) == 0;
+			cells.add(new PatternCell(corner, bare ? CellRole.FLOOR : CellRole.ROOF, grid.candidates(corner)));
+		}
+		
+		explanation.focusUnits(0, List.of(
+			UnitRef.row(grid.rowOf(corners[0])), UnitRef.row(grid.rowOf(corners[2])),
+			UnitRef.column(grid.columnOf(corners[0])), UnitRef.column(grid.columnOf(corners[1]))
+		)).pattern(0, cells);
+	}
 	
 	/**
 	 * Returns the two corners that carry candidates beyond the pair, or null unless there are exactly two of them and

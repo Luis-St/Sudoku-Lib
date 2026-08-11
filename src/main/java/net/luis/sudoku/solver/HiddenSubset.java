@@ -1,5 +1,7 @@
 package net.luis.sudoku.solver;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -51,13 +53,37 @@ abstract sealed class HiddenSubset implements TechniqueStrategy permits HiddenPa
 	 */
 	@Override
 	public final Optional<Deduction> find(CandidateGrid grid) {
+		return this.scan(grid, null);
+	}
+	
+	/**
+	 * Explains the subset by showing the cells the digits are confined to, then the extra candidates those cells are
+	 * therefore losing.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The eliminations and their explanation, or empty if the pattern makes no progress anywhere
+	 */
+	@Override
+	public final Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
+		Explanation.Builder builder = Explanation.builder(this.technique);
+		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
+	}
+	
+	/**
+	 * Runs the scan, optionally recording the pattern it found.
+	 *
+	 * @param grid The working grid
+	 * @param explanation The explanation to record into, or null to skip recording entirely
+	 * @return The first hidden-subset elimination, or empty
+	 */
+	private Optional<Deduction> scan(CandidateGrid grid, Explanation.Builder explanation) {
 		for (int[] unit : grid.allUnits()) {
 			int[] positions = new int[grid.n() + 1];
 			for (int digit = 1; digit <= grid.n(); digit++) {
 				positions[digit] = this.positionsOf(grid, unit, digit);
 			}
 			
-			Optional<Deduction> found = this.search(grid, unit, positions, 0, 1, 0, 0);
+			Optional<Deduction> found = this.search(grid, unit, positions, 0, 1, 0, 0, explanation);
 			if (found.isPresent()) {
 				return found;
 			}
@@ -76,11 +102,12 @@ abstract sealed class HiddenSubset implements TechniqueStrategy permits HiddenPa
 	 * @param start The first digit this level may pick, which keeps combinations ascending
 	 * @param digitMask The digits picked so far
 	 * @param union The union of the picked digits' position masks
+	 * @param explanation The explanation to record into, or null
 	 * @return The first elimination found below this node, or empty
 	 */
-	private Optional<Deduction> search(CandidateGrid grid, int[] unit, int[] positions, int depth, int start, int digitMask, int union) {
+	private Optional<Deduction> search(CandidateGrid grid, int[] unit, int[] positions, int depth, int start, int digitMask, int union, Explanation.Builder explanation) {
 		if (depth == this.subsetSize) {
-			return Integer.bitCount(union) == this.subsetSize ? this.eliminate(grid, unit, union, digitMask) : Optional.empty();
+			return Integer.bitCount(union) == this.subsetSize ? this.eliminate(grid, unit, union, digitMask, explanation) : Optional.empty();
 		}
 		
 		// Prune once the cells the digits occupy already outnumber the subset; more digits only add cells.
@@ -93,7 +120,7 @@ abstract sealed class HiddenSubset implements TechniqueStrategy permits HiddenPa
 				continue;
 			}
 			
-			Optional<Deduction> found = this.search(grid, unit, positions, depth + 1, digit + 1, digitMask | (1 << digit), union | positions[digit]);
+			Optional<Deduction> found = this.search(grid, unit, positions, depth + 1, digit + 1, digitMask | (1 << digit), union | positions[digit], explanation);
 			if (found.isPresent()) {
 				return found;
 			}
@@ -118,9 +145,10 @@ abstract sealed class HiddenSubset implements TechniqueStrategy permits HiddenPa
 	 * @param unit The unit the subset lives in
 	 * @param positionMask The unit positions the subset occupies
 	 * @param digitMask The digits the subset consists of, which are the ones to keep
+	 * @param explanation The explanation to record the pattern into, or null
 	 * @return The eliminations, or empty if the subset removes nothing
 	 */
-	private Optional<Deduction> eliminate(CandidateGrid grid, int[] unit, int positionMask, int digitMask) {
+	private Optional<Deduction> eliminate(CandidateGrid grid, int[] unit, int positionMask, int digitMask, Explanation.Builder explanation) {
 		EliminationBuilder builder = new EliminationBuilder();
 		int remaining = positionMask;
 		while (remaining != 0) {
@@ -128,6 +156,47 @@ abstract sealed class HiddenSubset implements TechniqueStrategy permits HiddenPa
 			remaining &= remaining - 1;
 			builder.addAll(grid, unit[position], ~digitMask);
 		}
-		return builder.build(this.technique);
+		
+		Optional<Deduction> deduction = builder.build(this.technique);
+		// Only a subset that removes something is the deduction being returned, so only that one is worth explaining.
+		if (deduction.isPresent() && explanation != null) {
+			this.explain(grid, unit, positionMask, digitMask, explanation);
+		}
+		return deduction;
+	}
+	
+	/**
+	 * Records the subset: the unit, the cells the hidden digits are confined to, and the extra candidates sitting on
+	 * top of them, which are what hides the subset from the eye in the first place.
+	 *
+	 * @param grid The working grid
+	 * @param unit The unit the subset lives in
+	 * @param positionMask The unit positions the subset occupies
+	 * @param digitMask The digits the subset consists of
+	 * @param explanation The explanation to record into
+	 */
+	private void explain(CandidateGrid grid, int[] unit, int positionMask, int digitMask, Explanation.Builder explanation) {
+		List<PatternCell> subset = new ArrayList<>(this.subsetSize);
+		List<PatternCell> extras = new ArrayList<>(this.subsetSize);
+		int remaining = positionMask;
+		int first = -1;
+		while (remaining != 0) {
+			int position = Integer.numberOfTrailingZeros(remaining);
+			remaining &= remaining - 1;
+			int cell = unit[position];
+			if (first < 0) {
+				first = cell;
+			}
+			
+			subset.add(new PatternCell(cell, CellRole.PATTERN, digitMask & grid.candidates(cell)));
+			int extra = ~digitMask & grid.candidates(cell);
+			if (extra != 0) {
+				extras.add(new PatternCell(cell, CellRole.TARGET, extra));
+			}
+		}
+		
+		explanation.focusUnits(0, List.of(Explanations.refOf(grid, unit, first)))
+			.pattern(0, subset)
+			.implication(0, extras);
 	}
 }

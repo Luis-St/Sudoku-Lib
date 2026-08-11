@@ -1,5 +1,7 @@
 package net.luis.sudoku.solver;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -41,6 +43,30 @@ public final class Pointing implements TechniqueStrategy {
 	 */
 	@Override
 	public Optional<Deduction> find(CandidateGrid grid) {
+		return this.scan(grid, null);
+	}
+	
+	/**
+	 * Explains the elimination by showing the region that owns the digit, the line every one of its candidates lies
+	 * on, and the cells of that line the digit is therefore gone from.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The eliminations and their explanation, or empty if the pattern makes no progress anywhere
+	 */
+	@Override
+	public Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
+		Explanation.Builder builder = Explanation.builder(Technique.POINTING);
+		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
+	}
+	
+	/**
+	 * Runs the scan, optionally recording the pattern it found.
+	 *
+	 * @param grid The working grid
+	 * @param explanation The explanation to record into, or null to skip recording entirely
+	 * @return The first pointing elimination, or empty
+	 */
+	private Optional<Deduction> scan(CandidateGrid grid, Explanation.Builder explanation) {
 		for (int region = 0; region < grid.partition().regionCount(); region++) {
 			int[] regionCells = grid.regionCells(region);
 			for (int digit = 1; digit <= grid.n(); digit++) {
@@ -69,13 +95,13 @@ public final class Pointing implements TechniqueStrategy {
 				}
 				
 				if (sameRow) {
-					Optional<Deduction> found = this.eliminate(grid, grid.rowCells(row), region, digit);
+					Optional<Deduction> found = this.eliminate(grid, UnitRef.row(row), region, digit, explanation);
 					if (found.isPresent()) {
 						return found;
 					}
 				}
 				if (sameColumn) {
-					Optional<Deduction> found = this.eliminate(grid, grid.columnCells(column), region, digit);
+					Optional<Deduction> found = this.eliminate(grid, UnitRef.column(column), region, digit, explanation);
 					if (found.isPresent()) {
 						return found;
 					}
@@ -85,13 +111,42 @@ public final class Pointing implements TechniqueStrategy {
 		return Optional.empty();
 	}
 	
-	private Optional<Deduction> eliminate(CandidateGrid grid, int[] lineCells, int region, int digit) {
+	private Optional<Deduction> eliminate(CandidateGrid grid, UnitRef line, int region, int digit, Explanation.Builder explanation) {
+		int[] lineCells = line.cells(grid);
 		EliminationBuilder builder = new EliminationBuilder();
 		for (int cell : lineCells) {
 			if (grid.regionOf(cell) != region) {
 				builder.add(grid, cell, digit);
 			}
 		}
-		return builder.build(Technique.POINTING);
+		
+		Optional<Deduction> deduction = builder.build(Technique.POINTING);
+		if (deduction.isPresent() && explanation != null) {
+			this.explain(grid, line, region, digit, explanation);
+		}
+		return deduction;
+	}
+	
+	/**
+	 * Records the pattern: the digit, the region and line it is locked between, and the candidates inside the region
+	 * that do the locking.
+	 *
+	 * @param grid The working grid
+	 * @param line The line the region's candidates all lie on
+	 * @param region The region that owns the digit
+	 * @param digit The digit being locked
+	 * @param explanation The explanation to record into
+	 */
+	private void explain(CandidateGrid grid, UnitRef line, int region, int digit, Explanation.Builder explanation) {
+		List<PatternCell> locked = new ArrayList<>();
+		for (int cell : grid.regionCells(region)) {
+			if (grid.hasCandidate(cell, digit)) {
+				locked.add(PatternCell.of(cell, CellRole.BASE, digit));
+			}
+		}
+		
+		explanation.focusDigit(digit)
+			.focusUnits(digit, List.of(UnitRef.region(region), line))
+			.pattern(digit, locked);
 	}
 }

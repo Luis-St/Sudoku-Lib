@@ -44,6 +44,23 @@ public final class Crane implements TechniqueStrategy {
 	 */
 	@Override
 	public Optional<Deduction> find(CandidateGrid grid) {
+		return this.scan(grid, null);
+	}
+
+	/**
+	 * Explains the Crane as the three-link chain it is: the digit, the units its links live in, each link in turn, and
+	 * the pair of ends one of which must therefore hold it.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The eliminations and their explanation, or empty if the pattern makes no progress anywhere
+	 */
+	@Override
+	public Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
+		Explanation.Builder builder = Explanation.builder(Technique.CRANE);
+		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
+	}
+
+	private Optional<Deduction> scan(CandidateGrid grid, Explanation.Builder explanation) {
 		for (int digit = 1; digit <= grid.n(); digit++) {
 			List<int[]> links = ConjugateLinks.of(grid, digit);
 			for (int[] first : links) {
@@ -57,7 +74,7 @@ public final class Crane implements TechniqueStrategy {
 							continue;
 						}
 						
-						Optional<Deduction> found = this.test(grid, digit, first, second, third);
+						Optional<Deduction> found = this.test(grid, digit, first, second, third, explanation);
 						if (found.isPresent()) {
 							return found;
 						}
@@ -71,7 +88,7 @@ public final class Crane implements TechniqueStrategy {
 	/**
 	 * Tries every orientation of the three links and returns the first chain whose ends eliminate something.
 	 */
-	private Optional<Deduction> test(CandidateGrid grid, int digit, int[] first, int[] second, int[] third) {
+	private Optional<Deduction> test(CandidateGrid grid, int digit, int[] first, int[] second, int[] third, Explanation.Builder explanation) {
 		for (int i = 0; i < 2; i++) {
 			for (int j = 0; j < 2; j++) {
 				for (int k = 0; k < 2; k++) {
@@ -91,7 +108,12 @@ public final class Crane implements TechniqueStrategy {
 					}
 					
 					Optional<Deduction> found = ConjugateLinks.eliminateSeenByBoth(grid, digit, startEnd, finishEnd, Technique.CRANE, startInner, middleLeft, middleRight, finishInner);
+					// Only a chain that removes something is the deduction being returned, so only that one is worth
+					// explaining: any earlier one was looked at and rejected.
 					if (found.isPresent()) {
+						if (explanation != null) {
+							Explanations.chain(grid, digit, new int[] { startEnd, startInner, middleLeft, middleRight, finishInner, finishEnd }, explanation);
+						}
 						return found;
 					}
 				}

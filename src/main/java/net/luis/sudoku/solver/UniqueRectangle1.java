@@ -1,5 +1,6 @@
 package net.luis.sudoku.solver;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -25,7 +26,7 @@ public final class UniqueRectangle1 extends UniqueRectangle {
 	}
 	
 	@Override
-	Optional<Deduction> test(CandidateGrid grid, int[] corners, int pair) {
+	Optional<Deduction> test(CandidateGrid grid, int[] corners, int pair, Explanation.Builder explanation) {
 		int target = -1;
 		for (int corner : corners) {
 			if ((grid.candidates(corner) & ~pair) == 0) {
@@ -44,6 +45,15 @@ public final class UniqueRectangle1 extends UniqueRectangle {
 		
 		EliminationBuilder builder = new EliminationBuilder();
 		builder.addAll(grid, target, pair);
-		return builder.build(Technique.UNIQUE_RECTANGLE_1);
+		Optional<Deduction> deduction = builder.build(Technique.UNIQUE_RECTANGLE_1);
+		// Only a rectangle that removes something is the deduction being returned, so only that one is worth
+		// explaining: any earlier one was looked at and rejected.
+		if (deduction.isPresent() && explanation != null) {
+			this.explainRectangle(grid, corners, pair, explanation);
+			// Three corners are down to the pair already, so this one taking either of them would complete the
+			// deadly pattern: it has to use one of its own extra candidates instead.
+			explanation.implication(0, List.of(new PatternCell(target, CellRole.ROOF, grid.candidates(target) & ~pair)));
+		}
+		return deduction;
 	}
 }

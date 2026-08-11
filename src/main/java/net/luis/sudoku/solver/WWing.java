@@ -1,5 +1,6 @@
 package net.luis.sudoku.solver;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -39,6 +40,23 @@ public final class WWing implements TechniqueStrategy {
 	 */
 	@Override
 	public Optional<Deduction> find(CandidateGrid grid) {
+		return this.scan(grid, null);
+	}
+
+	/**
+	 * Explains the W-Wing by showing the two identical bi-value cells, the conjugate pair of the linking digit that
+	 * joins them, and the conclusion that one of the two must hold the other digit.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The eliminations and their explanation, or empty if the pattern makes no progress anywhere
+	 */
+	@Override
+	public Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
+		Explanation.Builder builder = Explanation.builder(Technique.W_WING);
+		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
+	}
+
+	private Optional<Deduction> scan(CandidateGrid grid, Explanation.Builder explanation) {
 		for (int first = 0; first < grid.cellCount(); first++) {
 			int mask = grid.candidates(first);
 			if (Integer.bitCount(mask) != 2) {
@@ -51,7 +69,7 @@ public final class WWing implements TechniqueStrategy {
 					continue;
 				}
 				
-				Optional<Deduction> found = this.scanLinks(grid, first, second, mask);
+				Optional<Deduction> found = this.scanLinks(grid, first, second, mask, explanation);
 				if (found.isPresent()) {
 					return found;
 				}
@@ -60,7 +78,7 @@ public final class WWing implements TechniqueStrategy {
 		return Optional.empty();
 	}
 	
-	private Optional<Deduction> scanLinks(CandidateGrid grid, int first, int second, int mask) {
+	private Optional<Deduction> scanLinks(CandidateGrid grid, int first, int second, int mask, Explanation.Builder explanation) {
 		int digitA = Integer.numberOfTrailingZeros(mask);
 		int digitB = Integer.numberOfTrailingZeros(mask & (mask - 1));
 		for (int linked : new int[] { digitA, digitB }) {
@@ -77,11 +95,42 @@ public final class WWing implements TechniqueStrategy {
 				}
 				
 				Optional<Deduction> found = ConjugateLinks.eliminateSeenByBoth(grid, eliminated, first, second, Technique.W_WING, link[0], link[1]);
+				// Only a configuration that removes something is the deduction being returned, so only that one is
+				// worth explaining: any earlier one was looked at and rejected.
 				if (found.isPresent()) {
+					if (explanation != null) {
+						this.explain(grid, first, second, mask, link, linked, eliminated, explanation);
+					}
 					return found;
 				}
 			}
 		}
 		return Optional.empty();
+	}
+	
+	/**
+	 * Records the pattern: the two bi-value cells sharing one candidate set, the unit confining the linking digit to
+	 * two cells, and the implication that one of the bi-value cells is driven onto the other digit.
+	 *
+	 * @param grid The working grid
+	 * @param first The first bi-value cell
+	 * @param second The other one
+	 * @param mask The candidate set both of them hold
+	 * @param link The conjugate pair of the linking digit
+	 * @param linked The digit the conjugate pair is about
+	 * @param eliminated The digit one of the bi-value cells is therefore forced onto
+	 * @param explanation The explanation to record into
+	 */
+	private void explain(CandidateGrid grid, int first, int second, int mask, int[] link, int linked, int eliminated, Explanation.Builder explanation) {
+		UnitRef unit = Explanations.strongLinkUnit(grid, linked, link[0], link[1]);
+		explanation.pattern(0, List.of(new PatternCell(first, CellRole.PATTERN, mask), new PatternCell(second, CellRole.PATTERN, mask)))
+			.focusDigit(linked);
+		if (unit != null) {
+			explanation.focusUnits(linked, List.of(unit));
+		}
+		// Whichever end of the pair holds the linking digit drives the bi-value cell it sees off that digit, so one of
+		// the two bi-value cells has to be the other one.
+		explanation.link(linked, List.of(PatternCell.of(link[0], CellRole.LINK_OFF, linked), PatternCell.of(link[1], CellRole.LINK_ON, linked)))
+			.implication(eliminated, List.of(PatternCell.of(first, CellRole.LINK_ON, eliminated), PatternCell.of(second, CellRole.LINK_ON, eliminated)));
 	}
 }

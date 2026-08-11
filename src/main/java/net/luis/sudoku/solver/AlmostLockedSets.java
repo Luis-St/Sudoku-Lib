@@ -139,6 +139,44 @@ final class AlmostLockedSets {
 	}
 	
 	/**
+	 * Shows one set's cells with the digits each of them carries, so a consumer can draw the set as a group rather
+	 * than as loose cells.
+	 *
+	 * @param grid The working grid
+	 * @param set The set
+	 * @param role The role to give its cells
+	 * @return The pattern cells, in the set's own order
+	 */
+	static List<PatternCell> cellsOf(CandidateGrid grid, Als set, CellRole role) {
+		List<PatternCell> cells = new ArrayList<>(set.cells().length);
+		for (int cell : set.cells()) {
+			cells.add(new PatternCell(cell, role, grid.candidates(cell)));
+		}
+		return cells;
+	}
+	
+	/**
+	 * Shows every place one digit occurs across the given sets, which is what a claim about that digit is made of.
+	 *
+	 * @param grid The working grid
+	 * @param digit The digit
+	 * @param role The role to give the occurrences
+	 * @param sets The sets to look through
+	 * @return The pattern cells, set by set
+	 */
+	static List<PatternCell> occurrencesOf(CandidateGrid grid, int digit, CellRole role, Als... sets) {
+		List<PatternCell> cells = new ArrayList<>();
+		for (Als set : sets) {
+			for (int cell : set.cells()) {
+				if (grid.hasCandidate(cell, digit)) {
+					cells.add(PatternCell.of(cell, role, digit));
+				}
+			}
+		}
+		return cells;
+	}
+	
+	/**
 	 * One almost-locked set.
 	 *
 	 * @param cells The ascending cell indices the set occupies

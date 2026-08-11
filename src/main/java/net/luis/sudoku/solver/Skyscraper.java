@@ -43,14 +43,29 @@ public final class Skyscraper implements TechniqueStrategy {
 	 */
 	@Override
 	public Optional<Deduction> find(CandidateGrid grid) {
-		Optional<Deduction> rows = this.scan(grid, true);
+		Optional<Deduction> rows = this.scan(grid, true, null);
 		if (rows.isPresent()) {
 			return rows;
 		}
-		return this.scan(grid, false);
+		return this.scan(grid, false, null);
 	}
-	
-	private Optional<Deduction> scan(CandidateGrid grid, boolean rowForm) {
+
+	/**
+	 * Explains the Skyscraper as the two-link chain it is: the digit, the two lines it is confined to, the link along
+	 * each of them, and the pair of far ends one of which must therefore hold it.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The eliminations and their explanation, or empty if the pattern makes no progress anywhere
+	 */
+	@Override
+	public Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
+		Explanation.Builder builder = Explanation.builder(Technique.SKYSCRAPER);
+		Optional<Deduction> rows = this.scan(grid, true, builder);
+		Optional<Deduction> found = rows.isPresent() ? rows : this.scan(grid, false, builder);
+		return found.map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
+	}
+
+	private Optional<Deduction> scan(CandidateGrid grid, boolean rowForm, Explanation.Builder explanation) {
 		int n = grid.n();
 		for (int digit = 1; digit <= n; digit++) {
 			for (int first = 0; first < n; first++) {
@@ -65,7 +80,7 @@ public final class Skyscraper implements TechniqueStrategy {
 						continue;
 					}
 					
-					Optional<Deduction> found = this.test(grid, rowForm, digit, firstCells, secondCells);
+					Optional<Deduction> found = this.test(grid, rowForm, digit, firstCells, secondCells, explanation);
 					if (found.isPresent()) {
 						return found;
 					}
@@ -79,7 +94,7 @@ public final class Skyscraper implements TechniqueStrategy {
 	 * Tests two conjugate pairs for the Skyscraper shape: they must share exactly one crossing line, and the two far
 	 * ends must be the cells that survive.
 	 */
-	private Optional<Deduction> test(CandidateGrid grid, boolean rowForm, int digit, int[] first, int[] second) {
+	private Optional<Deduction> test(CandidateGrid grid, boolean rowForm, int digit, int[] first, int[] second, Explanation.Builder explanation) {
 		for (int i = 0; i < 2; i++) {
 			for (int j = 0; j < 2; j++) {
 				int baseA = first[i];
@@ -97,7 +112,14 @@ public final class Skyscraper implements TechniqueStrategy {
 				}
 				
 				Optional<Deduction> found = ConjugateLinks.eliminateSeenByBoth(grid, digit, roofA, roofB, Technique.SKYSCRAPER, baseA, baseB);
+				// Only a configuration that removes something is the deduction being returned, so only that one is
+				// worth explaining: any earlier one was looked at and rejected.
 				if (found.isPresent()) {
+					if (explanation != null) {
+						// End to end: the far end of one line, down to the shared crossing line, and out along the
+						// other line to its far end.
+						Explanations.chain(grid, digit, new int[] { roofA, baseA, baseB, roofB }, explanation);
+					}
 					return found;
 				}
 			}

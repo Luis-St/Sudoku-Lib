@@ -1,5 +1,6 @@
 package net.luis.sudoku.solver;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,4 +42,66 @@ final class HiddenSingles {
 		}
 		return Optional.empty();
 	}
+
+	/**
+	 * Runs {@link #scan(CandidateGrid, List, Technique)} and explains its result as cross-hatching.
+	 * <p>
+	 *     The explanation is the argument a player actually makes: the unit is outlined, then every other empty cell
+	 *     of it is shown together with the placed digit elsewhere that rules the digit out of it. What is left over is
+	 *     the placement. Showing the blockers rather than only the answer is the whole difference between a hint and
+	 *     a lesson.
+	 * </p>
+	 *
+	 * @param grid The working grid; never mutated
+	 * @param units The units to scan, in the order they should be visited
+	 * @param technique The technique to attribute the placement to
+	 * @return The first forced placement and its explanation, or empty if there is none
+	 */
+	static Optional<ExplainedDeduction> scanExplained(CandidateGrid grid, List<int[]> units, Technique technique) {
+		return scan(grid, units, technique).map(deduction -> {
+			Deduction.Placement placement = (Deduction.Placement) deduction;
+			int digit = placement.digit();
+			int[] unit = unitContaining(units, placement.cell());
+
+			List<PatternCell> blocked = new ArrayList<>();
+			for (int cell : unit) {
+				if (cell == placement.cell() || !grid.isEmpty(cell)) {
+					continue;
+				}
+
+				blocked.add(PatternCell.of(cell, CellRole.CONTEXT, digit));
+				int blocker = Explanations.peerHolding(grid, cell, digit);
+				if (blocker >= 0) {
+					blocked.add(PatternCell.of(blocker, CellRole.BASE, digit));
+				}
+			}
+
+			return new ExplainedDeduction(deduction, Explanation.builder(technique)
+				.focusDigit(digit)
+				.focusUnits(digit, List.of(Explanations.refOf(grid, unit, placement.cell())))
+				.implication(digit, blocked)
+				.conclusion(deduction)
+				.build());
+		});
+	}
+
+	/**
+	 * Returns the first of the scanned units that holds the given cell, which is the unit the scan argued in.
+	 *
+	 * @param units The units that were scanned, in scan order
+	 * @param cell The placed cell
+	 * @return The unit's cells
+	 */
+	private static int[] unitContaining(List<int[]> units, int cell) {
+		for (int[] unit : units) {
+			for (int member : unit) {
+				if (member == cell) {
+					return unit;
+				}
+			}
+		}
+		// Unreachable: the placement came from one of these very units.
+		throw new IllegalStateException("Placed cell " + cell + " lies in none of the scanned units");
+	}
+
 }
