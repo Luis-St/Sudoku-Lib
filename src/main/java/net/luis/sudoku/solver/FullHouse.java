@@ -65,7 +65,7 @@ public final class FullHouse implements TechniqueStrategy {
 		}
 		return Optional.empty();
 	}
-
+	
 	/**
 	 * Explains the full house by outlining the unit that is one cell short and showing every digit already in it, so
 	 * the missing one is the only thing left to say.
@@ -96,7 +96,7 @@ public final class FullHouse implements TechniqueStrategy {
 					break;
 				}
 			}
-
+			
 			return new ExplainedDeduction(deduction, Explanation.builder(Technique.FULL_HOUSE)
 				.focusUnits(0, List.of(unit))
 				.pattern(0, Explanations.filledOf(grid, unitCells))

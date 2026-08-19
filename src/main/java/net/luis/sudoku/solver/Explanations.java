@@ -1,8 +1,6 @@
 package net.luis.sudoku.solver;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 /**
  * Small shared helpers for building an {@link Explanation}, used by the strategies that can re-derive their pattern
@@ -16,9 +14,9 @@ import java.util.List;
  * </p>
  */
 final class Explanations {
-
+	
 	private Explanations() {}
-
+	
 	/**
 	 * Returns references to the row, the column and the region the given cell lies in.
 	 *
@@ -29,7 +27,7 @@ final class Explanations {
 	static List<UnitRef> unitsOf(CandidateGrid grid, int cell) {
 		return List.of(UnitRef.row(grid.rowOf(cell)), UnitRef.column(grid.columnOf(cell)), UnitRef.region(grid.regionOf(cell)));
 	}
-
+	
 	/**
 	 * Finds the peer of the given cell that already holds the given digit.
 	 * <p>
@@ -50,7 +48,7 @@ final class Explanations {
 		}
 		return -1;
 	}
-
+	
 	/**
 	 * Collects, for every digit other than the one being placed, the peer that rules it out of the cell.
 	 *
@@ -65,7 +63,7 @@ final class Explanations {
 			if (other == digit) {
 				continue;
 			}
-
+			
 			int blocker = peerHolding(grid, cell, other);
 			if (blocker >= 0) {
 				blockers.add(PatternCell.of(blocker, CellRole.CONTEXT, other));
@@ -73,7 +71,7 @@ final class Explanations {
 		}
 		return blockers;
 	}
-
+	
 	/**
 	 * Wraps every given cell as a pattern cell of one role, about one digit.
 	 *
@@ -89,7 +87,7 @@ final class Explanations {
 		}
 		return result;
 	}
-
+	
 	/**
 	 * Names the given unit, by checking which of a member cell's three units has the same membership.
 	 * <p>
@@ -112,7 +110,7 @@ final class Explanations {
 		}
 		throw new IllegalStateException("Unit holding cell " + cell + " is none of its row, column or region");
 	}
-
+	
 	/**
 	 * Names a unit two cells both lie in, which is what "these two see each other" means on screen.
 	 *
@@ -129,7 +127,7 @@ final class Explanations {
 		}
 		return null;
 	}
-
+	
 	/**
 	 * Paints a two-coloured cluster as pattern cells, one colour shown as assumed true and the other as assumed false.
 	 * <p>
@@ -150,7 +148,7 @@ final class Explanations {
 		}
 		return result;
 	}
-
+	
 	/**
 	 * Names the unit that makes two cells a strong link for one digit: the unit they share in which the digit has
 	 * exactly two candidates.
@@ -175,7 +173,7 @@ final class Explanations {
 			if (shared == null) {
 				shared = unit;
 			}
-
+			
 			int count = 0;
 			for (int cell : unit.cells(grid)) {
 				if (grid.hasCandidate(cell, digit)) {
@@ -188,7 +186,7 @@ final class Explanations {
 		}
 		return shared;
 	}
-
+	
 	/**
 	 * Builds the steps every single-digit chain shares: the digit, the units its strong links live in, one beat per
 	 * link, and the implication that one of the two ends holds the digit.
@@ -213,7 +211,7 @@ final class Explanations {
 				units.add(unit);
 			}
 		}
-
+		
 		explanation.focusDigit(digit);
 		if (!units.isEmpty()) {
 			explanation.focusUnits(digit, units);
@@ -229,7 +227,7 @@ final class Explanations {
 			PatternCell.of(chain[chain.length - 1], CellRole.LINK_ON, digit)
 		));
 	}
-
+	
 	private static boolean contains(int[] cells, int cell) {
 		for (int candidate : cells) {
 			if (candidate == cell) {
@@ -238,7 +236,7 @@ final class Explanations {
 		}
 		return false;
 	}
-
+	
 	/**
 	 * Returns the cells of the given unit that already hold a digit.
 	 *

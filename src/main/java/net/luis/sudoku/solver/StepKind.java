@@ -12,7 +12,7 @@ package net.luis.sudoku.solver;
  * @see ExplanationStep
  */
 public enum StepKind {
-
+	
 	/**
 	 * "Look at this digit." Opens an argument that is about one digit throughout, such as any fish.
 	 */

@@ -1,8 +1,6 @@
 package net.luis.sudoku.solver;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * The shared basic-fish scan behind the X-Wing, Swordfish and Jellyfish and their finned and sashimi forms.

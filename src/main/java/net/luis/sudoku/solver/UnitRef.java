@@ -16,7 +16,7 @@ import java.util.Objects;
  * @see Explanation
  */
 public record UnitRef(UnitKind kind, int index) {
-
+	
 	/**
 	 * Constructs a unit reference.
 	 *
@@ -25,12 +25,12 @@ public record UnitRef(UnitKind kind, int index) {
 	 */
 	public UnitRef {
 		Objects.requireNonNull(kind, "Unit kind must not be null");
-
+		
 		if (index < 0) {
 			throw new IllegalArgumentException("Unit index must not be negative, but was " + index);
 		}
 	}
-
+	
 	/**
 	 * Creates a reference to the given row.
 	 *
@@ -40,7 +40,7 @@ public record UnitRef(UnitKind kind, int index) {
 	public static UnitRef row(int index) {
 		return new UnitRef(UnitKind.ROW, index);
 	}
-
+	
 	/**
 	 * Creates a reference to the given column.
 	 *
@@ -50,7 +50,7 @@ public record UnitRef(UnitKind kind, int index) {
 	public static UnitRef column(int index) {
 		return new UnitRef(UnitKind.COLUMN, index);
 	}
-
+	
 	/**
 	 * Creates a reference to the given region.
 	 *
@@ -60,7 +60,7 @@ public record UnitRef(UnitKind kind, int index) {
 	public static UnitRef region(int index) {
 		return new UnitRef(UnitKind.REGION, index);
 	}
-
+	
 	/**
 	 * Resolves this reference to the cells of the unit it names.
 	 *
@@ -70,7 +70,7 @@ public record UnitRef(UnitKind kind, int index) {
 	 */
 	public int[] cells(CandidateGrid grid) {
 		Objects.requireNonNull(grid, "Grid must not be null");
-
+		
 		return switch (this.kind) {
 			case ROW -> grid.rowCells(this.index);
 			case COLUMN -> grid.columnCells(this.index);

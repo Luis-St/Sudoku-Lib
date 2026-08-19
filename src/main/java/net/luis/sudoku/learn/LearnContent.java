@@ -15,7 +15,7 @@ import java.util.Objects;
  * </p>
  */
 public final class LearnContent {
-
+	
 	/**
 	 * How many worked examples the wiki page of a technique shows.
 	 * <p>
@@ -24,70 +24,31 @@ public final class LearnContent {
 	 * </p>
 	 */
 	public static final int EXAMPLES_PER_TECHNIQUE = 5;
-
+	
 	/**
 	 * How many training levels a technique has, each giving less help than the one before.
 	 */
 	public static final int LEVELS = 3;
-
+	
 	/**
 	 * How many exercises each training level holds.
 	 */
 	public static final int SUB_LEVELS = 3;
-
+	
 	/**
 	 * How many training exercises a technique has in total.
 	 */
 	public static final int EXERCISES_PER_TECHNIQUE = LEVELS * SUB_LEVELS;
-
+	
+	private LearnContent() {}
+	
 	/**
 	 * How many puzzles have to be generated in total: the examples and the exercises of every taught technique.
 	 */
 	public static int totalPuzzles() {
 		return LearnTechniques.count() * (EXAMPLES_PER_TECHNIQUE + EXERCISES_PER_TECHNIQUE);
 	}
-
-	private LearnContent() {}
-
-	/**
-	 * How much help a training level gives.
-	 * <p>
-	 *     The three levels are the same puzzle set under three different amounts of support, which is the whole of the
-	 *     teaching design: recognise the pattern, then find it when asked, then find it unprompted.
-	 * </p>
-	 */
-	public enum Assistance {
-
-		/**
-		 * Level 1. A button walks through the pattern cells one at a time, in the order the explanation introduces
-		 * them, so a player who cannot yet see the shape is shown it rather than left to guess.
-		 */
-		GUIDED,
-		/**
-		 * Level 2. Hints only when asked for, and they may mark cells and nothing else. No candidate is highlighted
-		 * and nothing says what to do with the marked cells, so the deduction is still the player's to make.
-		 */
-		ON_REQUEST,
-		/**
-		 * Level 3. Nothing but the technique's description. This is the level that proves the technique was learned.
-		 */
-		NONE;
-
-		/**
-		 * Returns the assistance of the given training level.
-		 *
-		 * @param level The one-based level, {@code 1..}{@link #LEVELS}
-		 * @return The assistance that level gives
-		 * @throws IllegalArgumentException If the level is out of range
-		 */
-		public static Assistance ofLevel(int level) {
-			if (level < 1 || level > LEVELS) {
-				throw new IllegalArgumentException("Level " + level + " is not in 1.." + LEVELS);
-			}
-			return values()[level - 1];
-		}
-	}
-
+	
 	/**
 	 * Returns the seed a given exercise is generated from.
 	 * <p>
@@ -105,10 +66,10 @@ public final class LearnContent {
 	 */
 	public static long seedFor(Technique technique, int level, int index) {
 		Objects.requireNonNull(technique, "Technique must not be null");
-
+		
 		return (technique.ordinal() + 1L) * 1_000_000L + level * 1_000L + index * 37L + 1L;
 	}
-
+	
 	/**
 	 * Returns every technique the export task has to generate for.
 	 *
@@ -116,5 +77,44 @@ public final class LearnContent {
 	 */
 	public static List<Technique> techniques() {
 		return LearnTechniques.taught();
+	}
+	
+	/**
+	 * How much help a training level gives.
+	 * <p>
+	 *     The three levels are the same puzzle set under three different amounts of support, which is the whole of the
+	 *     teaching design: recognise the pattern, then find it when asked, then find it unprompted.
+	 * </p>
+	 */
+	public enum Assistance {
+		
+		/**
+		 * Level 1. A button walks through the pattern cells one at a time, in the order the explanation introduces
+		 * them, so a player who cannot yet see the shape is shown it rather than left to guess.
+		 */
+		GUIDED,
+		/**
+		 * Level 2. Hints only when asked for, and they may mark cells and nothing else. No candidate is highlighted
+		 * and nothing says what to do with the marked cells, so the deduction is still the player's to make.
+		 */
+		ON_REQUEST,
+		/**
+		 * Level 3. Nothing but the technique's description. This is the level that proves the technique was learned.
+		 */
+		NONE;
+		
+		/**
+		 * Returns the assistance of the given training level.
+		 *
+		 * @param level The one-based level, {@code 1..}{@link #LEVELS}
+		 * @return The assistance that level gives
+		 * @throws IllegalArgumentException If the level is out of range
+		 */
+		public static Assistance ofLevel(int level) {
+			if (level < 1 || level > LEVELS) {
+				throw new IllegalArgumentException("Level " + level + " is not in 1.." + LEVELS);
+			}
+			return values()[level - 1];
+		}
 	}
 }

@@ -1,8 +1,6 @@
 package net.luis.sudoku.solver;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * The WXYZ-Wing: four cells spanning exactly four candidates, all but one of which are locked across the group.
@@ -48,7 +46,7 @@ public final class WxyzWing implements TechniqueStrategy {
 		int[] group = new int[4];
 		return this.search(grid, group, 0, 0, 0, null);
 	}
-
+	
 	/**
 	 * Explains the wing by showing the four cells and the four digits they span, and naming the one digit that is not
 	 * used up by the others, which one of the cells therefore has to hold.

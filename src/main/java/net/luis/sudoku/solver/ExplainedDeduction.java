@@ -17,7 +17,7 @@ import java.util.Objects;
  * @see Explanation
  */
 public record ExplainedDeduction(Deduction deduction, Explanation explanation) {
-
+	
 	/**
 	 * Constructs an explained deduction.
 	 *
@@ -27,12 +27,12 @@ public record ExplainedDeduction(Deduction deduction, Explanation explanation) {
 	public ExplainedDeduction {
 		Objects.requireNonNull(deduction, "Deduction must not be null");
 		Objects.requireNonNull(explanation, "Explanation must not be null");
-
+		
 		if (deduction.technique() != explanation.technique()) {
 			throw new IllegalArgumentException("Deduction and explanation disagree: " + deduction.technique() + " against " + explanation.technique());
 		}
 	}
-
+	
 	/**
 	 * Returns the technique both components belong to.
 	 *

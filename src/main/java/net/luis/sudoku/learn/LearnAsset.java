@@ -2,9 +2,7 @@ package net.luis.sudoku.learn;
 
 import net.luis.sudoku.solver.Technique;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * One technique's bundled content: the worked examples the wiki shows and the exercises its training sets.
@@ -28,7 +26,7 @@ import java.util.Objects;
  * @see LearnPuzzleCodec
  */
 public record LearnAsset(Technique technique, List<LearnPuzzle> examples, List<LearnPuzzle> exercises) {
-
+	
 	/**
 	 * Constructs an asset, copying both lists so the record stays an immutable value.
 	 *
@@ -38,11 +36,11 @@ public record LearnAsset(Technique technique, List<LearnPuzzle> examples, List<L
 		Objects.requireNonNull(technique, "Technique must not be null");
 		Objects.requireNonNull(examples, "Examples must not be null");
 		Objects.requireNonNull(exercises, "Exercises must not be null");
-
+		
 		examples = List.copyOf(examples);
 		exercises = List.copyOf(exercises);
 	}
-
+	
 	/**
 	 * Returns the file name a technique's content is written under, which is the name an app asks its asset manager
 	 * for.
@@ -53,10 +51,10 @@ public record LearnAsset(Technique technique, List<LearnPuzzle> examples, List<L
 	 */
 	public static String fileNameOf(Technique technique) {
 		Objects.requireNonNull(technique, "Technique must not be null");
-
+		
 		return technique.name().toLowerCase() + ".json";
 	}
-
+	
 	/**
 	 * Writes the content as the JSON one file holds.
 	 *
@@ -66,13 +64,13 @@ public record LearnAsset(Technique technique, List<LearnPuzzle> examples, List<L
 	 */
 	public static String write(LearnAsset asset) {
 		Objects.requireNonNull(asset, "Asset must not be null");
-
+		
 		return "{\n\"technique\":\"" + asset.technique().name() + "\",\n"
 			+ "\"level\":" + asset.technique().level() + ",\n"
 			+ "\"examples\":" + LearnPuzzleCodec.writeAll(asset.examples()) + ",\n"
 			+ "\"exercises\":" + LearnPuzzleCodec.writeAll(asset.exercises()) + "\n}\n";
 	}
-
+	
 	/**
 	 * Reads back what {@link #write(LearnAsset)} wrote.
 	 * <p>
@@ -87,24 +85,24 @@ public record LearnAsset(Technique technique, List<LearnPuzzle> examples, List<L
 	 */
 	public static LearnAsset read(String json) {
 		Objects.requireNonNull(json, "Json must not be null");
-
+		
 		int examplesAt = json.indexOf("\"examples\":");
 		int exercisesAt = json.indexOf("\"exercises\":");
 		if (examplesAt < 0 || exercisesAt < 0 || examplesAt > exercisesAt) {
 			throw new IllegalArgumentException("Not a learn asset: no examples and exercises in that order");
 		}
-
+		
 		List<LearnPuzzle> examples = LearnPuzzleCodec.readAll(json.substring(examplesAt, exercisesAt));
 		List<LearnPuzzle> exercises = LearnPuzzleCodec.readAll(json.substring(exercisesAt));
 		if (examples.isEmpty() && exercises.isEmpty()) {
 			throw new IllegalArgumentException("Not a learn asset: it holds no puzzles");
 		}
-
+		
 		List<LearnPuzzle> all = new ArrayList<>(examples);
 		all.addAll(exercises);
 		return new LearnAsset(all.get(0).technique(), examples, exercises);
 	}
-
+	
 	/**
 	 * Returns the exercise at one place in the training.
 	 *
@@ -122,10 +120,10 @@ public record LearnAsset(Technique technique, List<LearnPuzzle> examples, List<L
 		if (index < 0 || index >= LearnContent.SUB_LEVELS) {
 			throw new IllegalArgumentException("Sub level " + index + " is not in 0.." + (LearnContent.SUB_LEVELS - 1));
 		}
-
+		
 		return this.exercises.get((level - 1) * LearnContent.SUB_LEVELS + index);
 	}
-
+	
 	/**
 	 * Checks whether this content holds everything a technique needs.
 	 *

@@ -35,7 +35,7 @@ public interface TechniqueStrategy {
 	 * @return The first deduction, or an empty optional if this technique cannot make progress
 	 */
 	Optional<Deduction> find(CandidateGrid grid);
-
+	
 	/**
 	 * Finds the same deduction {@link #find(CandidateGrid)} would, together with an {@link Explanation} of why it
 	 * follows.

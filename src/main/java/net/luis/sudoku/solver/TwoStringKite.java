@@ -43,7 +43,7 @@ public final class TwoStringKite implements TechniqueStrategy {
 	public Optional<Deduction> find(CandidateGrid grid) {
 		return this.scan(grid, null);
 	}
-
+	
 	/**
 	 * Explains the kite as the two-link chain it is: the digit, the row and the column it is confined to, the link
 	 * along each of them, and the pair of far ends one of which must therefore hold it.
@@ -56,7 +56,7 @@ public final class TwoStringKite implements TechniqueStrategy {
 		Explanation.Builder builder = Explanation.builder(Technique.TWO_STRING_KITE);
 		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
 	}
-
+	
 	private Optional<Deduction> scan(CandidateGrid grid, Explanation.Builder explanation) {
 		int n = grid.n();
 		for (int digit = 1; digit <= n; digit++) {

@@ -1,18 +1,8 @@
 package net.luis.sudoku.learn;
 
-import net.luis.sudoku.solver.CellRole;
-import net.luis.sudoku.solver.Explanation;
-import net.luis.sudoku.solver.ExplanationStep;
-import net.luis.sudoku.solver.PatternCell;
-import net.luis.sudoku.solver.Technique;
-import net.luis.sudoku.solver.UnitRef;
+import net.luis.sudoku.solver.*;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
-import java.util.StringJoiner;
-import java.util.TreeSet;
+import java.util.*;
 
 /**
  * One exercise of the learn area: a 9x9 position in which a chosen technique is exactly the next thing to do.
@@ -47,7 +37,7 @@ import java.util.TreeSet;
  * @see LearnPuzzleGenerator
  */
 public record LearnPuzzle(Technique technique, int[] board, int[] solution, int[] pencilMarks, int targetCell, int targetDigit, Explanation explanation) {
-
+	
 	/**
 	 * The edge length of every learn puzzle.
 	 * <p>
@@ -57,12 +47,12 @@ public record LearnPuzzle(Technique technique, int[] board, int[] solution, int[
 	 * </p>
 	 */
 	public static final int SIZE = 9;
-
+	
 	/**
 	 * The number of cells of every learn puzzle.
 	 */
 	public static final int CELL_COUNT = SIZE * SIZE;
-
+	
 	/**
 	 * Constructs a learn puzzle, copying every array so the record stays an immutable value.
 	 *
@@ -76,7 +66,7 @@ public record LearnPuzzle(Technique technique, int[] board, int[] solution, int[
 		Objects.requireNonNull(board, "Board must not be null");
 		Objects.requireNonNull(solution, "Solution must not be null");
 		Objects.requireNonNull(pencilMarks, "Pencil marks must not be null");
-
+		
 		if (board.length != CELL_COUNT || solution.length != CELL_COUNT || pencilMarks.length != CELL_COUNT) {
 			throw new IllegalArgumentException("Every array must have " + CELL_COUNT + " entries");
 		}
@@ -95,12 +85,12 @@ public record LearnPuzzle(Technique technique, int[] board, int[] solution, int[
 		if (technique != explanation.technique()) {
 			throw new IllegalArgumentException("Explanation is for " + explanation.technique() + ", not " + technique);
 		}
-
+		
 		board = board.clone();
 		solution = solution.clone();
 		pencilMarks = pencilMarks.clone();
 	}
-
+	
 	/**
 	 * Returns a copy of the position.
 	 *
@@ -110,7 +100,7 @@ public record LearnPuzzle(Technique technique, int[] board, int[] solution, int[
 	public int[] board() {
 		return this.board.clone();
 	}
-
+	
 	/**
 	 * Returns a copy of the solution.
 	 *
@@ -120,7 +110,7 @@ public record LearnPuzzle(Technique technique, int[] board, int[] solution, int[
 	public int[] solution() {
 		return this.solution.clone();
 	}
-
+	
 	/**
 	 * Returns a copy of the pencil marks.
 	 *
@@ -130,7 +120,7 @@ public record LearnPuzzle(Technique technique, int[] board, int[] solution, int[
 	public int[] pencilMarks() {
 		return this.pencilMarks.clone();
 	}
-
+	
 	/**
 	 * Returns the candidates to pre-fill into the given cell.
 	 *
@@ -142,7 +132,7 @@ public record LearnPuzzle(Technique technique, int[] board, int[] solution, int[
 		if (cell < 0 || cell >= CELL_COUNT) {
 			throw new IllegalArgumentException("Cell " + cell + " is not on the board");
 		}
-
+		
 		int mask = this.pencilMarks[cell];
 		int[] digits = new int[Integer.bitCount(mask)];
 		int index = 0;
@@ -152,7 +142,7 @@ public record LearnPuzzle(Technique technique, int[] board, int[] solution, int[
 		}
 		return digits;
 	}
-
+	
 	/**
 	 * Returns how many cells of the position are still empty.
 	 *
@@ -167,7 +157,7 @@ public record LearnPuzzle(Technique technique, int[] board, int[] solution, int[
 		}
 		return empty;
 	}
-
+	
 	/**
 	 * Returns a key describing the <i>shape</i> of this exercise, used to keep a set of examples visually varied.
 	 * <p>
@@ -183,7 +173,7 @@ public record LearnPuzzle(Technique technique, int[] board, int[] solution, int[
 	public String layoutKey() {
 		StringJoiner key = new StringJoiner("|");
 		key.add(String.valueOf(this.targetDigit));
-
+		
 		TreeSet<String> units = new TreeSet<>();
 		for (ExplanationStep step : this.explanation.steps()) {
 			for (UnitRef unit : step.units()) {
@@ -191,19 +181,19 @@ public record LearnPuzzle(Technique technique, int[] board, int[] solution, int[
 			}
 		}
 		key.add(String.join(",", units));
-
+		
 		TreeSet<String> blocks = new TreeSet<>();
 		for (PatternCell cell : this.explanation.allCells()) {
 			if (cell.role() == CellRole.CONTEXT) {
 				continue;
 			}
-
+			
 			blocks.add((cell.cell() / SIZE / 3) + ":" + (cell.cell() % SIZE / 3));
 		}
 		key.add(String.join(",", blocks));
 		return key.toString();
 	}
-
+	
 	/**
 	 * Returns the cells the technique's pattern occupies, without the merely explanatory ones.
 	 * <p>
@@ -221,14 +211,14 @@ public record LearnPuzzle(Technique technique, int[] board, int[] solution, int[
 				cells.add(cell.cell());
 			}
 		}
-
+		
 		int[] result = new int[cells.size()];
 		for (int index = 0; index < result.length; index++) {
 			result[index] = cells.get(index);
 		}
 		return result;
 	}
-
+	
 	@Override
 	public boolean equals(Object object) {
 		if (this == object) {
@@ -243,12 +233,12 @@ public record LearnPuzzle(Technique technique, int[] board, int[] solution, int[
 			&& Arrays.equals(this.pencilMarks, other.pencilMarks)
 			&& this.explanation.equals(other.explanation);
 	}
-
+	
 	@Override
 	public int hashCode() {
 		return Objects.hash(this.technique, this.targetCell, this.targetDigit, Arrays.hashCode(this.board), Arrays.hashCode(this.pencilMarks));
 	}
-
+	
 	@Override
 	public String toString() {
 		return "LearnPuzzle[" + this.technique + ", target " + this.targetDigit + " at " + this.targetCell + ", " + this.emptyCount() + " empty]";

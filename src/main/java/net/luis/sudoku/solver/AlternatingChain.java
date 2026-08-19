@@ -75,7 +75,7 @@ abstract sealed class AlternatingChain implements TechniqueStrategy permits XCha
 	public final Optional<Deduction> find(CandidateGrid grid) {
 		return this.scan(grid, null);
 	}
-
+	
 	/**
 	 * Explains the chain by walking it link by link: assume the first end does not hold its digit, and every strong
 	 * link along the way forces the next candidate, until the far end is forced instead. One of the two ends is
@@ -89,7 +89,7 @@ abstract sealed class AlternatingChain implements TechniqueStrategy permits XCha
 		Explanation.Builder builder = Explanation.builder(this.technique);
 		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
 	}
-
+	
 	private Optional<Deduction> scan(CandidateGrid grid, Explanation.Builder explanation) {
 		List<int[]> nodes = this.buildNodes(grid);
 		int[] digits = new int[nodes.size()];

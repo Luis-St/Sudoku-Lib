@@ -42,7 +42,7 @@ public final class WWing implements TechniqueStrategy {
 	public Optional<Deduction> find(CandidateGrid grid) {
 		return this.scan(grid, null);
 	}
-
+	
 	/**
 	 * Explains the W-Wing by showing the two identical bi-value cells, the conjugate pair of the linking digit that
 	 * joins them, and the conclusion that one of the two must hold the other digit.
@@ -55,7 +55,7 @@ public final class WWing implements TechniqueStrategy {
 		Explanation.Builder builder = Explanation.builder(Technique.W_WING);
 		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
 	}
-
+	
 	private Optional<Deduction> scan(CandidateGrid grid, Explanation.Builder explanation) {
 		for (int first = 0; first < grid.cellCount(); first++) {
 			int mask = grid.candidates(first);

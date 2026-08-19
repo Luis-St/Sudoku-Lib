@@ -1,17 +1,8 @@
 package net.luis.sudoku.learn;
 
-import net.luis.sudoku.solver.CellRole;
-import net.luis.sudoku.solver.Explanation;
-import net.luis.sudoku.solver.ExplanationStep;
-import net.luis.sudoku.solver.PatternCell;
-import net.luis.sudoku.solver.StepKind;
-import net.luis.sudoku.solver.Technique;
-import net.luis.sudoku.solver.UnitKind;
-import net.luis.sudoku.solver.UnitRef;
+import net.luis.sudoku.solver.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * Reads and writes {@link LearnPuzzle} as JSON, so the exercises can be generated once on a desktop and shipped with
@@ -31,9 +22,15 @@ import java.util.Objects;
  * @see LearnPuzzle
  */
 public final class LearnPuzzleCodec {
-
+	
+	/**
+	 * How one written exercise opens, which is what separates them inside an array. Every exercise starts with its
+	 * technique and holds no nested object before the next one begins, so finding these is enough to split them.
+	 */
+	private static final String OBJECT_START = "{\"technique\":";
+	
 	private LearnPuzzleCodec() {}
-
+	
 	/**
 	 * Writes a list of exercises as a JSON array.
 	 *
@@ -43,7 +40,7 @@ public final class LearnPuzzleCodec {
 	 */
 	public static String writeAll(List<LearnPuzzle> puzzles) {
 		Objects.requireNonNull(puzzles, "Puzzles must not be null");
-
+		
 		StringBuilder json = new StringBuilder("[");
 		for (int index = 0; index < puzzles.size(); index++) {
 			if (index > 0) {
@@ -53,7 +50,7 @@ public final class LearnPuzzleCodec {
 		}
 		return json.append("\n]\n").toString();
 	}
-
+	
 	/**
 	 * Reads back what {@link #writeAll(List)} wrote.
 	 * <p>
@@ -68,7 +65,7 @@ public final class LearnPuzzleCodec {
 	 */
 	public static List<LearnPuzzle> readAll(String json) {
 		Objects.requireNonNull(json, "Json must not be null");
-
+		
 		List<LearnPuzzle> puzzles = new ArrayList<>();
 		int at = json.indexOf(OBJECT_START);
 		while (at >= 0) {
@@ -78,13 +75,7 @@ public final class LearnPuzzleCodec {
 		}
 		return List.copyOf(puzzles);
 	}
-
-	/**
-	 * How one written exercise opens, which is what separates them inside an array. Every exercise starts with its
-	 * technique and holds no nested object before the next one begins, so finding these is enough to split them.
-	 */
-	private static final String OBJECT_START = "{\"technique\":";
-
+	
 	/**
 	 * Writes one exercise as a JSON object.
 	 *
@@ -94,18 +85,18 @@ public final class LearnPuzzleCodec {
 	 */
 	public static String write(LearnPuzzle puzzle) {
 		Objects.requireNonNull(puzzle, "Puzzle must not be null");
-
-		StringBuilder json = new StringBuilder("{");
-		json.append("\"technique\":\"").append(puzzle.technique().name()).append("\",");
-		json.append("\"board\":\"").append(digits(puzzle.board())).append("\",");
-		json.append("\"solution\":\"").append(digits(puzzle.solution())).append("\",");
-		json.append("\"pencil\":\"").append(masks(puzzle.pencilMarks())).append("\",");
-		json.append("\"targetCell\":").append(puzzle.targetCell()).append(",");
-		json.append("\"targetDigit\":").append(puzzle.targetDigit()).append(",");
-		json.append("\"steps\":").append(writeSteps(puzzle.explanation()));
-		return json.append("}").toString();
+		
+		String json = "{" + "\"technique\":\"" + puzzle.technique().name() + "\"," +
+			"\"board\":\"" + digits(puzzle.board()) + "\"," +
+			"\"solution\":\"" + digits(puzzle.solution()) + "\"," +
+			"\"pencil\":\"" + masks(puzzle.pencilMarks()) + "\"," +
+			"\"targetCell\":" + puzzle.targetCell() + "," +
+			"\"targetDigit\":" + puzzle.targetDigit() + "," +
+			"\"steps\":" + writeSteps(puzzle.explanation()) +
+			"}";
+		return json;
 	}
-
+	
 	private static String writeSteps(Explanation explanation) {
 		StringBuilder json = new StringBuilder("[");
 		List<ExplanationStep> steps = explanation.steps();
@@ -113,7 +104,7 @@ public final class LearnPuzzleCodec {
 			if (index > 0) {
 				json.append(",");
 			}
-
+			
 			ExplanationStep step = steps.get(index);
 			json.append("{\"kind\":\"").append(step.kind().name()).append("\",");
 			json.append("\"digit\":").append(step.digit()).append(",");
@@ -122,7 +113,7 @@ public final class LearnPuzzleCodec {
 		}
 		return json.append("]").toString();
 	}
-
+	
 	/**
 	 * Writes the pattern cells as {@code cell:role:mask} triples, separated by commas.
 	 */
@@ -136,7 +127,7 @@ public final class LearnPuzzleCodec {
 		}
 		return text.toString();
 	}
-
+	
 	/**
 	 * Writes the units as {@code kind:index} pairs, separated by commas.
 	 */
@@ -150,7 +141,7 @@ public final class LearnPuzzleCodec {
 		}
 		return text.toString();
 	}
-
+	
 	private static String digits(int[] values) {
 		StringBuilder text = new StringBuilder(values.length);
 		for (int value : values) {
@@ -158,7 +149,7 @@ public final class LearnPuzzleCodec {
 		}
 		return text.toString();
 	}
-
+	
 	private static String masks(int[] values) {
 		StringBuilder text = new StringBuilder();
 		for (int value : values) {
@@ -169,7 +160,7 @@ public final class LearnPuzzleCodec {
 		}
 		return text.toString();
 	}
-
+	
 	/**
 	 * Reads back what {@link #write(LearnPuzzle)} wrote.
 	 * <p>
@@ -185,14 +176,14 @@ public final class LearnPuzzleCodec {
 	 */
 	public static LearnPuzzle read(String json) {
 		Objects.requireNonNull(json, "Json must not be null");
-
+		
 		Technique technique = Technique.valueOf(stringField(json, "technique"));
 		int[] board = readDigits(stringField(json, "board"));
 		int[] solution = readDigits(stringField(json, "solution"));
 		int[] pencil = readMasks(stringField(json, "pencil"));
 		int targetCell = intField(json, "targetCell");
 		int targetDigit = intField(json, "targetDigit");
-
+		
 		int stepsAt = json.indexOf("\"steps\":[");
 		if (stepsAt < 0) {
 			throw new IllegalArgumentException("No steps in " + json);
@@ -200,7 +191,7 @@ public final class LearnPuzzleCodec {
 		Explanation explanation = readSteps(technique, json.substring(stepsAt + "\"steps\":".length()));
 		return new LearnPuzzle(technique, board, solution, pencil, targetCell, targetDigit, explanation);
 	}
-
+	
 	private static Explanation readSteps(Technique technique, String json) {
 		List<ExplanationStep> steps = new ArrayList<>();
 		int at = 0;
@@ -209,7 +200,7 @@ public final class LearnPuzzleCodec {
 			if (open < 0) {
 				break;
 			}
-
+			
 			int close = json.indexOf("}", open);
 			String step = json.substring(open, close + 1);
 			StepKind kind = StepKind.valueOf(stringField(step, "kind"));
@@ -217,19 +208,19 @@ public final class LearnPuzzleCodec {
 			steps.add(new ExplanationStep(kind, digit, readCells(stringField(step, "cells")), readUnits(stringField(step, "units"))));
 			at = close + 1;
 		}
-
+		
 		if (steps.isEmpty()) {
 			throw new IllegalArgumentException("No steps in " + json);
 		}
 		return new Explanation(technique, steps);
 	}
-
+	
 	private static List<PatternCell> readCells(String text) {
 		List<PatternCell> cells = new ArrayList<>();
 		if (text.isEmpty()) {
 			return cells;
 		}
-
+		
 		for (String entry : text.split(",")) {
 			String[] parts = entry.split(":");
 			if (parts.length != 3) {
@@ -239,13 +230,13 @@ public final class LearnPuzzleCodec {
 		}
 		return cells;
 	}
-
+	
 	private static List<UnitRef> readUnits(String text) {
 		List<UnitRef> units = new ArrayList<>();
 		if (text.isEmpty()) {
 			return units;
 		}
-
+		
 		for (String entry : text.split(",")) {
 			String[] parts = entry.split(":");
 			if (parts.length != 2) {
@@ -255,7 +246,7 @@ public final class LearnPuzzleCodec {
 		}
 		return units;
 	}
-
+	
 	private static int[] readDigits(String text) {
 		int[] values = new int[text.length()];
 		for (int index = 0; index < values.length; index++) {
@@ -263,7 +254,7 @@ public final class LearnPuzzleCodec {
 		}
 		return values;
 	}
-
+	
 	private static int[] readMasks(String text) {
 		String[] parts = text.split(",");
 		int[] values = new int[parts.length];
@@ -272,25 +263,25 @@ public final class LearnPuzzleCodec {
 		}
 		return values;
 	}
-
+	
 	private static String stringField(String json, String name) {
 		String key = "\"" + name + "\":\"";
 		int at = json.indexOf(key);
 		if (at < 0) {
 			throw new IllegalArgumentException("No field " + name + " in " + json);
 		}
-
+		
 		int start = at + key.length();
 		return json.substring(start, json.indexOf('"', start));
 	}
-
+	
 	private static int intField(String json, String name) {
 		String key = "\"" + name + "\":";
 		int at = json.indexOf(key);
 		if (at < 0) {
 			throw new IllegalArgumentException("No field " + name + " in " + json);
 		}
-
+		
 		int start = at + key.length();
 		int end = start;
 		while (end < json.length() && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '-')) {

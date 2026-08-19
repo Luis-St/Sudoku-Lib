@@ -45,7 +45,7 @@ public final class HiddenSingleLine implements TechniqueStrategy {
 		}
 		return HiddenSingles.scan(grid, grid.columns(), Technique.HIDDEN_SINGLE_LINE);
 	}
-
+	
 	/**
 	 * Explains the single as cross-hatching along the line, in the same rows-before-columns order the scan uses.
 	 *

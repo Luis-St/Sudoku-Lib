@@ -49,7 +49,7 @@ public final class Skyscraper implements TechniqueStrategy {
 		}
 		return this.scan(grid, false, null);
 	}
-
+	
 	/**
 	 * Explains the Skyscraper as the two-link chain it is: the digit, the two lines it is confined to, the link along
 	 * each of them, and the pair of far ends one of which must therefore hold it.
@@ -64,7 +64,7 @@ public final class Skyscraper implements TechniqueStrategy {
 		Optional<Deduction> found = rows.isPresent() ? rows : this.scan(grid, false, builder);
 		return found.map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
 	}
-
+	
 	private Optional<Deduction> scan(CandidateGrid grid, boolean rowForm, Explanation.Builder explanation) {
 		int n = grid.n();
 		for (int digit = 1; digit <= n; digit++) {

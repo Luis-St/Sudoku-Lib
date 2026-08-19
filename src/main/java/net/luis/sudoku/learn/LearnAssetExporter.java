@@ -6,10 +6,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * Generates the learn area's bundled content and writes it as one JSON file per technique.
@@ -30,45 +27,9 @@ import java.util.Optional;
  * @see LearnPuzzleCodec
  */
 public final class LearnAssetExporter {
-
+	
 	private LearnAssetExporter() {}
-
-	/**
-	 * What one technique's export produced.
-	 *
-	 * @param technique The technique
-	 * @param examples How many worked examples were found, of {@link LearnContent#EXAMPLES_PER_TECHNIQUE}
-	 * @param exercises How many training exercises were found, of {@link LearnContent#EXERCISES_PER_TECHNIQUE}
-	 * @param millis How long it took
-	 */
-	public record Result(Technique technique, int examples, int exercises, long millis) {
-
-		/**
-		 * Constructs a result.
-		 *
-		 * @throws NullPointerException If the technique is null
-		 */
-		public Result {
-			Objects.requireNonNull(technique, "Technique must not be null");
-		}
-
-		/**
-		 * Checks whether this technique got everything it needs.
-		 *
-		 * @return True if every example and every exercise was found
-		 */
-		public boolean isComplete() {
-			return this.examples == LearnContent.EXAMPLES_PER_TECHNIQUE && this.exercises == LearnContent.EXERCISES_PER_TECHNIQUE;
-		}
-
-		@Override
-		public String toString() {
-			return String.format("%-26s %d/%d examples  %d/%d exercises  %6dms%s", this.technique,
-				this.examples, LearnContent.EXAMPLES_PER_TECHNIQUE, this.exercises, LearnContent.EXERCISES_PER_TECHNIQUE,
-				this.millis, this.isComplete() ? "" : "  INCOMPLETE");
-		}
-	}
-
+	
 	/**
 	 * Generates and writes the content of every taught technique.
 	 *
@@ -83,7 +44,7 @@ public final class LearnAssetExporter {
 	public static List<Result> exportAll(Path directory, LearnPuzzleGenerator.Budget budget, boolean skipExisting) throws IOException {
 		Objects.requireNonNull(directory, "Directory must not be null");
 		Objects.requireNonNull(budget, "Budget must not be null");
-
+		
 		Files.createDirectories(directory);
 		List<Result> results = new ArrayList<>();
 		for (Technique technique : LearnContent.techniques()) {
@@ -91,12 +52,12 @@ public final class LearnAssetExporter {
 			if (skipExisting && isComplete(file)) {
 				continue;
 			}
-
+			
 			results.add(export(file, technique, budget));
 		}
 		return List.copyOf(results);
 	}
-
+	
 	/**
 	 * Generates and writes one technique's content.
 	 *
@@ -111,10 +72,10 @@ public final class LearnAssetExporter {
 		Objects.requireNonNull(file, "File must not be null");
 		Objects.requireNonNull(technique, "Technique must not be null");
 		Objects.requireNonNull(budget, "Budget must not be null");
-
+		
 		long start = System.currentTimeMillis();
 		List<LearnPuzzle> examples = LearnPuzzleGenerator.generateSet(technique, LearnContent.EXAMPLES_PER_TECHNIQUE, LearnContent.seedFor(technique, 0, 0), budget);
-
+		
 		// The exercises are generated one at a time rather than as a set: they are met one at a time too, so two of
 		// them sharing a layout costs nothing, whereas five examples side by side in a carousel must all differ.
 		List<LearnPuzzle> exercises = new ArrayList<>(LearnContent.EXERCISES_PER_TECHNIQUE);
@@ -124,11 +85,11 @@ public final class LearnAssetExporter {
 				puzzle.ifPresent(exercises::add);
 			}
 		}
-
+		
 		List<LearnPuzzle> all = new ArrayList<>(examples);
 		all.addAll(exercises);
 		Files.writeString(file, LearnAsset.write(new LearnAsset(technique, examples, exercises)), StandardCharsets.UTF_8);
-
+		
 		// Reading every puzzle straight back is the only check that catches a format change before the asset reaches
 		// a device, where it would show as a learn area that simply refuses to open.
 		for (LearnPuzzle puzzle : all) {
@@ -136,7 +97,7 @@ public final class LearnAssetExporter {
 		}
 		return new Result(technique, examples.size(), exercises.size(), System.currentTimeMillis() - start);
 	}
-
+	
 	/**
 	 * Checks whether a technique's file is already there <i>and</i> holds everything it should.
 	 * <p>
@@ -150,11 +111,11 @@ public final class LearnAssetExporter {
 	 */
 	public static boolean isComplete(Path file) {
 		Objects.requireNonNull(file, "File must not be null");
-
+		
 		if (!Files.exists(file)) {
 			return false;
 		}
-
+		
 		try {
 			return LearnAsset.read(Files.readString(file, StandardCharsets.UTF_8)).isComplete();
 		} catch (IOException | IllegalArgumentException e) {
@@ -163,7 +124,7 @@ public final class LearnAssetExporter {
 			return false;
 		}
 	}
-
+	
 	/**
 	 * Returns the file a technique's content is written to.
 	 *
@@ -175,10 +136,10 @@ public final class LearnAssetExporter {
 	public static Path fileOf(Path directory, Technique technique) {
 		Objects.requireNonNull(directory, "Directory must not be null");
 		Objects.requireNonNull(technique, "Technique must not be null");
-
+		
 		return directory.resolve(LearnAsset.fileNameOf(technique));
 	}
-
+	
 	/**
 	 * Runs the export from the command line.
 	 * <p>
@@ -194,11 +155,11 @@ public final class LearnAssetExporter {
 			System.err.println("Usage: LearnAssetExporter <directory> [--resume]");
 			return;
 		}
-
+		
 		boolean resume = args.length > 1 && "--resume".equals(args[1]);
 		Path directory = Path.of(args[0]);
 		System.out.println("Exporting " + LearnContent.techniques().size() + " techniques, " + LearnContent.totalPuzzles() + " puzzles, into " + directory.toAbsolutePath());
-
+		
 		long start = System.currentTimeMillis();
 		int incomplete = 0;
 		Files.createDirectories(directory);
@@ -208,14 +169,50 @@ public final class LearnAssetExporter {
 				System.out.println(technique + " already complete, skipped");
 				continue;
 			}
-
+			
 			Result result = export(file, technique, LearnPuzzleGenerator.Budget.offline());
 			System.out.println(result);
 			if (!result.isComplete()) {
 				incomplete++;
 			}
 		}
-
+		
 		System.out.println("Done in " + (System.currentTimeMillis() - start) / 1000 + "s, " + incomplete + " techniques incomplete");
+	}
+	
+	/**
+	 * What one technique's export produced.
+	 *
+	 * @param technique The technique
+	 * @param examples How many worked examples were found, of {@link LearnContent#EXAMPLES_PER_TECHNIQUE}
+	 * @param exercises How many training exercises were found, of {@link LearnContent#EXERCISES_PER_TECHNIQUE}
+	 * @param millis How long it took
+	 */
+	public record Result(Technique technique, int examples, int exercises, long millis) {
+		
+		/**
+		 * Constructs a result.
+		 *
+		 * @throws NullPointerException If the technique is null
+		 */
+		public Result {
+			Objects.requireNonNull(technique, "Technique must not be null");
+		}
+		
+		/**
+		 * Checks whether this technique got everything it needs.
+		 *
+		 * @return True if every example and every exercise was found
+		 */
+		public boolean isComplete() {
+			return this.examples == LearnContent.EXAMPLES_PER_TECHNIQUE && this.exercises == LearnContent.EXERCISES_PER_TECHNIQUE;
+		}
+		
+		@Override
+		public String toString() {
+			return String.format("%-26s %d/%d examples  %d/%d exercises  %6dms%s", this.technique,
+				this.examples, LearnContent.EXAMPLES_PER_TECHNIQUE, this.exercises, LearnContent.EXERCISES_PER_TECHNIQUE,
+				this.millis, this.isComplete() ? "" : "  INCOMPLETE");
+		}
 	}
 }

@@ -48,7 +48,7 @@ public final class Medusa3d implements TechniqueStrategy {
 	public Optional<Deduction> find(CandidateGrid grid) {
 		return this.scan(grid, null);
 	}
-
+	
 	/**
 	 * Explains the Medusa by painting the whole cluster in its two colours and then showing which rule fired: a colour
 	 * that contradicts itself, or a candidate the true colour covers whichever colour that is.
@@ -61,7 +61,7 @@ public final class Medusa3d implements TechniqueStrategy {
 		Explanation.Builder builder = Explanation.builder(Technique.MEDUSA_3D);
 		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
 	}
-
+	
 	private Optional<Deduction> scan(CandidateGrid grid, Explanation.Builder explanation) {
 		for (Colourings.Cluster cluster : Colourings.ofGrid(grid)) {
 			Optional<Deduction> contradiction = this.contradiction(grid, cluster, explanation);

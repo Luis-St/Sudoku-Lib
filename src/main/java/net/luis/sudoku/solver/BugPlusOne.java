@@ -1,8 +1,6 @@
 package net.luis.sudoku.solver;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * The BUG+1 technique: a grid one candidate away from the bi-value universal grave must place that extra candidate.

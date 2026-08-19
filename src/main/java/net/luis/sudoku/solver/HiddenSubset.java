@@ -1,8 +1,6 @@
 package net.luis.sudoku.solver;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * The shared hidden-subset scan: {@code k} digits of a unit confined to the same {@code k} cells own those cells

@@ -1,8 +1,6 @@
 package net.luis.sudoku.solver;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * The shared naked-subset scan: {@code k} cells of a unit whose candidates together span exactly {@code k} digits use
@@ -56,7 +54,7 @@ abstract sealed class NakedSubset implements TechniqueStrategy permits NakedPair
 	public final Optional<Deduction> find(CandidateGrid grid) {
 		return this.scan(grid, null);
 	}
-
+	
 	/**
 	 * Explains the subset by showing the cells it occupies together with the digits they share, then the cells of the
 	 * unit those digits are therefore gone from.
@@ -69,7 +67,7 @@ abstract sealed class NakedSubset implements TechniqueStrategy permits NakedPair
 		Explanation.Builder builder = Explanation.builder(this.technique);
 		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
 	}
-
+	
 	/**
 	 * Runs the scan, optionally recording the pattern it found.
 	 *

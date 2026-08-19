@@ -1,8 +1,6 @@
 package net.luis.sudoku.solver;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * Unique rectangle type 3: the roof's extra candidates behave as a single virtual cell, which can form a naked subset

@@ -46,7 +46,7 @@ public final class Crane implements TechniqueStrategy {
 	public Optional<Deduction> find(CandidateGrid grid) {
 		return this.scan(grid, null);
 	}
-
+	
 	/**
 	 * Explains the Crane as the three-link chain it is: the digit, the units its links live in, each link in turn, and
 	 * the pair of ends one of which must therefore hold it.
@@ -59,7 +59,7 @@ public final class Crane implements TechniqueStrategy {
 		Explanation.Builder builder = Explanation.builder(Technique.CRANE);
 		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
 	}
-
+	
 	private Optional<Deduction> scan(CandidateGrid grid, Explanation.Builder explanation) {
 		for (int digit = 1; digit <= grid.n(); digit++) {
 			List<int[]> links = ConjugateLinks.of(grid, digit);

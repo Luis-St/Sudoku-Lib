@@ -19,7 +19,7 @@ import java.util.Objects;
  * @see StepKind
  */
 public record ExplanationStep(StepKind kind, int digit, List<PatternCell> cells, List<UnitRef> units) {
-
+	
 	/**
 	 * Constructs a step, copying both lists so the record stays an immutable value.
 	 *
@@ -30,15 +30,15 @@ public record ExplanationStep(StepKind kind, int digit, List<PatternCell> cells,
 		Objects.requireNonNull(kind, "Step kind must not be null");
 		Objects.requireNonNull(cells, "Cells must not be null");
 		Objects.requireNonNull(units, "Units must not be null");
-
+		
 		if (digit < 0) {
 			throw new IllegalArgumentException("Digit must not be negative, but was " + digit);
 		}
-
+		
 		cells = List.copyOf(cells);
 		units = List.copyOf(units);
 	}
-
+	
 	/**
 	 * Creates a step that highlights cells only.
 	 *
@@ -50,7 +50,7 @@ public record ExplanationStep(StepKind kind, int digit, List<PatternCell> cells,
 	public static ExplanationStep of(StepKind kind, int digit, List<PatternCell> cells) {
 		return new ExplanationStep(kind, digit, cells, List.of());
 	}
-
+	
 	/**
 	 * Creates a step that outlines units only.
 	 *

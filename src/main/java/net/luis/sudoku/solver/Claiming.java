@@ -1,8 +1,6 @@
 package net.luis.sudoku.solver;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * The claiming half of locked candidates: a digit whose candidates within a row or column all lie in one region must
@@ -140,6 +138,7 @@ public final class Claiming implements TechniqueStrategy {
 		}
 		return false;
 	}
+	
 	/**
 	 * Records the pattern: the digit, the line and region it is locked between, and the candidates on the line that
 	 * do the locking.

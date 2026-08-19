@@ -1,8 +1,6 @@
 package net.luis.sudoku.solver;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * The last-digit technique: a digit already placed in every region but one has exactly one cell left in the grid that
@@ -61,7 +59,7 @@ public final class LastDigit implements TechniqueStrategy {
 		}
 		return Optional.empty();
 	}
-
+	
 	/**
 	 * Explains the last digit by showing every cell that already holds it, which is the count the argument rests on.
 	 *
@@ -79,7 +77,7 @@ public final class LastDigit implements TechniqueStrategy {
 					placedCells.add(PatternCell.of(cell, CellRole.CONTEXT, digit));
 				}
 			}
-
+			
 			return new ExplainedDeduction(deduction, Explanation.builder(Technique.LAST_DIGIT)
 				.focusDigit(digit)
 				.pattern(digit, placedCells)

@@ -18,7 +18,7 @@ import java.util.Objects;
  * @see Explanation
  */
 public record PatternCell(int cell, CellRole role, int digits) {
-
+	
 	/**
 	 * Constructs a pattern cell.
 	 *
@@ -27,7 +27,7 @@ public record PatternCell(int cell, CellRole role, int digits) {
 	 */
 	public PatternCell {
 		Objects.requireNonNull(role, "Cell role must not be null");
-
+		
 		if (cell < 0) {
 			throw new IllegalArgumentException("Cell index must not be negative, but was " + cell);
 		}
@@ -35,7 +35,7 @@ public record PatternCell(int cell, CellRole role, int digits) {
 			throw new IllegalArgumentException("Digit mask must not be negative, but was " + digits);
 		}
 	}
-
+	
 	/**
 	 * Creates a pattern cell that is about the whole cell rather than any particular candidate.
 	 *
@@ -46,7 +46,7 @@ public record PatternCell(int cell, CellRole role, int digits) {
 	public static PatternCell of(int cell, CellRole role) {
 		return new PatternCell(cell, role, 0);
 	}
-
+	
 	/**
 	 * Creates a pattern cell that is about a single candidate.
 	 *
@@ -62,7 +62,7 @@ public record PatternCell(int cell, CellRole role, int digits) {
 		}
 		return new PatternCell(cell, role, 1 << digit);
 	}
-
+	
 	/**
 	 * Returns the digits of {@link #digits()} in ascending order.
 	 *

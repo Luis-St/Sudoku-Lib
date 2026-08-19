@@ -196,10 +196,10 @@ public final class TechniqueSolver {
 	 */
 	public static Optional<Deduction> nextDeduction(CandidateGrid grid) {
 		Objects.requireNonNull(grid, "Grid must not be null");
-
+		
 		return Optional.ofNullable(nextDeduction(grid, Technique.MAX_LEVEL));
 	}
-
+	
 	/**
 	 * Returns the deduction the driver would make next using only techniques up to {@code maxLevel}, without applying
 	 * it.
@@ -220,10 +220,10 @@ public final class TechniqueSolver {
 		if (maxLevel < 1 || maxLevel > Technique.MAX_LEVEL) {
 			throw new IllegalArgumentException("Maximum level " + maxLevel + " is not in 1.." + Technique.MAX_LEVEL);
 		}
-
+		
 		return Optional.ofNullable(nextDeduction(grid, maxLevel));
 	}
-
+	
 	private static Deduction nextDeduction(CandidateGrid grid, int maxLevel) {
 		for (TechniqueStrategy strategy : STRATEGIES) {
 			// STRATEGIES is in escalating level order, so the first strategy above the cap ends the scan: everything

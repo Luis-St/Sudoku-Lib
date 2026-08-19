@@ -1,8 +1,6 @@
 package net.luis.sudoku.solver;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * The shared rectangle hunt behind the four unique-rectangle techniques.
@@ -59,7 +57,7 @@ abstract sealed class UniqueRectangle implements TechniqueStrategy permits Uniqu
 	public final Optional<Deduction> find(CandidateGrid grid) {
 		return this.scan(grid, null);
 	}
-
+	
 	/**
 	 * Explains the rectangle: the four corners and the pair that would make them deadly, followed by whatever the
 	 * concrete type concludes from how far this rectangle already is from that.
@@ -72,7 +70,7 @@ abstract sealed class UniqueRectangle implements TechniqueStrategy permits Uniqu
 		Explanation.Builder builder = Explanation.builder(this.technique);
 		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
 	}
-
+	
 	private Optional<Deduction> scan(CandidateGrid grid, Explanation.Builder explanation) {
 		int n = grid.n();
 		for (int topRow = 0; topRow < n; topRow++) {
@@ -159,7 +157,7 @@ abstract sealed class UniqueRectangle implements TechniqueStrategy permits Uniqu
 	 * @return The elimination this type proves for the rectangle, or empty
 	 */
 	abstract Optional<Deduction> test(CandidateGrid grid, int[] corners, int pair, Explanation.Builder explanation);
-
+	
 	/**
 	 * Records the beats every type shares: the two rows and two columns the rectangle stands on, and its four corners
 	 * split into the floor that is bare and the roof that carries the extra candidates.

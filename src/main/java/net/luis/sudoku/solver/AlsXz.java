@@ -42,7 +42,7 @@ public final class AlsXz implements TechniqueStrategy {
 	public Optional<Deduction> find(CandidateGrid grid) {
 		return this.scan(grid, null);
 	}
-
+	
 	/**
 	 * Explains the pair by showing both sets with the digits they span, the restricted common only one of them can
 	 * use, and the second shared digit that one of them therefore certainly holds.
@@ -55,7 +55,7 @@ public final class AlsXz implements TechniqueStrategy {
 		Explanation.Builder builder = Explanation.builder(Technique.ALS_XZ);
 		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
 	}
-
+	
 	private Optional<Deduction> scan(CandidateGrid grid, Explanation.Builder explanation) {
 		List<AlmostLockedSets.Als> sets = AlmostLockedSets.of(grid);
 		for (int i = 0; i < sets.size(); i++) {

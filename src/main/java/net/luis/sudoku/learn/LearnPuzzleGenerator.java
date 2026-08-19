@@ -3,23 +3,11 @@ package net.luis.sudoku.learn;
 import net.luis.sudoku.difficulty.Difficulty;
 import net.luis.sudoku.generation.GeneratedPuzzle;
 import net.luis.sudoku.generation.PuzzleGenerator;
-import net.luis.sudoku.grid.GridSize;
-import net.luis.sudoku.grid.Puzzle;
-import net.luis.sudoku.grid.Variant;
+import net.luis.sudoku.grid.*;
 import net.luis.sudoku.key.PuzzleKey;
-import net.luis.sudoku.solver.CandidateGrid;
-import net.luis.sudoku.solver.Deduction;
-import net.luis.sudoku.solver.ExplainedDeduction;
-import net.luis.sudoku.solver.Technique;
-import net.luis.sudoku.solver.TechniqueSolver;
-import net.luis.sudoku.solver.TechniqueStrategy;
+import net.luis.sudoku.solver.*;
 
-import java.util.ArrayList;
-import java.util.TreeSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Finds positions in which one chosen technique is exactly the next thing to do, which is what the learn area needs
@@ -66,72 +54,31 @@ import java.util.Set;
  * @see LearnPuzzle
  */
 public final class LearnPuzzleGenerator {
-
+	
+	/**
+	 * How many difficulty bands above its own a technique is looked for in.
+	 * <p>
+	 *     A technique's own band is where it is most likely to be the hardest step, but for the techniques that are
+	 *     rarely the hardest step of anything, that band is nearly always solved by something easier before they get
+	 *     a chance. Measured over 600 seeds each, the hidden quad, the jellyfish and multi-colouring never once
+	 *     surfaced at their own band, and all three do at the bands just above, where the position stays tangled long
+	 *     enough for them to become the easiest thing left. Sweeping a few bands costs the common techniques nothing,
+	 *     since they are found on the first attempt, at their own band.
+	 * </p>
+	 */
+	private static final int BAND_SPREAD = 5;
 	/**
 	 * How many seeds a single {@link #generate(Technique, long, Budget)} call may try before giving up, when the
 	 * budget does not say otherwise.
 	 */
 	public static final int DEFAULT_ATTEMPTS = 64;
-
 	/**
 	 * How long a single call may run before giving up, when the budget does not say otherwise.
 	 */
 	public static final long DEFAULT_TIMEOUT_MILLIS = 15_000L;
-
+	
 	private LearnPuzzleGenerator() {}
-
-	/**
-	 * How much work a generation call may do before giving up.
-	 * <p>
-	 *     Both limits are checked, and whichever is reached first ends the search. The attempt count keeps a fast
-	 *     machine from spinning on a technique that never turns up; the deadline keeps a slow one from freezing an
-	 *     interface that has promised the player a few seconds.
-	 * </p>
-	 *
-	 * @param attempts The greatest number of seeds to try, at least one
-	 * @param timeoutMillis The greatest time to spend, in milliseconds, at least one
-	 */
-	public record Budget(int attempts, long timeoutMillis) {
-
-		/**
-		 * Constructs a budget.
-		 *
-		 * @throws IllegalArgumentException If either limit is not positive
-		 */
-		public Budget {
-			if (attempts < 1) {
-				throw new IllegalArgumentException("Attempts must be positive, but was " + attempts);
-			}
-			if (timeoutMillis < 1) {
-				throw new IllegalArgumentException("Timeout must be positive, but was " + timeoutMillis);
-			}
-		}
-
-		/**
-		 * Returns the budget a caller gets when it does not ask for a particular one.
-		 *
-		 * @return The default budget
-		 */
-		public static Budget standard() {
-			return new Budget(DEFAULT_ATTEMPTS, DEFAULT_TIMEOUT_MILLIS);
-		}
-
-		/**
-		 * Returns a budget suited to generating offline, where taking a long time costs nobody anything.
-		 * <p>
-		 *     An hour per call, which sounds absurd until it is measured: five <i>distinct</i> examples of simple
-		 *     colouring took 456 seconds to find, of the X-Chain 358, and of the jellyfish 765, all of them past the
-		 *     five minutes this used to allow. A run that gives up short leaves a technique with a carousel it cannot
-		 *     fill, which is worse in every way than an export that takes an afternoon and is then committed forever.
-		 * </p>
-		 *
-		 * @return A generous budget
-		 */
-		public static Budget offline() {
-			return new Budget(100_000, 3_600_000L);
-		}
-	}
-
+	
 	/**
 	 * Finds one position in which the given technique is the next thing to do.
 	 *
@@ -148,14 +95,14 @@ public final class LearnPuzzleGenerator {
 		if (!LearnTechniques.isTaught(technique)) {
 			throw new IllegalArgumentException("The learn area does not teach " + technique);
 		}
-
+		
 		long deadline = System.currentTimeMillis() + budget.timeoutMillis();
 		for (boolean strict : new boolean[] { true, false }) {
 			for (int attempt = 0; attempt < budget.attempts(); attempt++) {
 				if (System.currentTimeMillis() >= deadline) {
 					return Optional.empty();
 				}
-
+				
 				Optional<LearnPuzzle> found = fromSeed(technique, firstSeed + attempt, bandFor(technique, attempt), strict);
 				if (found.isPresent()) {
 					return found;
@@ -164,7 +111,7 @@ public final class LearnPuzzleGenerator {
 		}
 		return Optional.empty();
 	}
-
+	
 	/**
 	 * Finds several positions for the given technique, each showing the pattern in a visibly different place.
 	 * <p>
@@ -190,7 +137,7 @@ public final class LearnPuzzleGenerator {
 		if (count < 1) {
 			throw new IllegalArgumentException("Count must be positive, but was " + count);
 		}
-
+		
 		long deadline = System.currentTimeMillis() + budget.timeoutMillis();
 		List<LearnPuzzle> found = new ArrayList<>(count);
 		// A sorted set rather than a hashed one: the generator is held to the same determinism rules as the rest of
@@ -201,7 +148,7 @@ public final class LearnPuzzleGenerator {
 				if (System.currentTimeMillis() >= deadline) {
 					return List.copyOf(found);
 				}
-
+				
 				Optional<LearnPuzzle> puzzle = fromSeed(technique, firstSeed + attempt, bandFor(technique, attempt), strict);
 				if (puzzle.isPresent() && layouts.add(puzzle.get().layoutKey())) {
 					found.add(puzzle.get());
@@ -213,20 +160,7 @@ public final class LearnPuzzleGenerator {
 		}
 		return List.copyOf(found);
 	}
-
-	/**
-	 * How many difficulty bands above its own a technique is looked for in.
-	 * <p>
-	 *     A technique's own band is where it is most likely to be the hardest step, but for the techniques that are
-	 *     rarely the hardest step of anything, that band is nearly always solved by something easier before they get
-	 *     a chance. Measured over 600 seeds each, the hidden quad, the jellyfish and multi-colouring never once
-	 *     surfaced at their own band, and all three do at the bands just above, where the position stays tangled long
-	 *     enough for them to become the easiest thing left. Sweeping a few bands costs the common techniques nothing,
-	 *     since they are found on the first attempt, at their own band.
-	 * </p>
-	 */
-	private static final int BAND_SPREAD = 5;
-
+	
 	/**
 	 * Returns the difficulty band to generate at for the given attempt.
 	 * <p>
@@ -243,7 +177,7 @@ public final class LearnPuzzleGenerator {
 		int band = technique.level() + attempt % BAND_SPREAD;
 		return Difficulty.ofIndex(Math.min(band, Technique.MAX_LEVEL));
 	}
-
+	
 	/**
 	 * Walks one generated puzzle forwards, looking for the moment the target technique becomes the easiest thing that
 	 * applies.
@@ -258,14 +192,14 @@ public final class LearnPuzzleGenerator {
 	private static Optional<LearnPuzzle> fromSeed(Technique technique, long seed, Difficulty difficulty, boolean strict) {
 		GeneratedPuzzle generated = PuzzleGenerator.generate(PuzzleKey.of(GridSize.NINE, Variant.CLASSIC, difficulty, seed));
 		int[] solution = generated.solution();
-
+		
 		CandidateGrid grid = new CandidateGrid(generated.puzzle());
 		while (!grid.isComplete()) {
 			Optional<Deduction> next = TechniqueSolver.nextDeduction(grid);
 			if (next.isEmpty()) {
 				return Optional.empty();
 			}
-
+			
 			Deduction deduction = next.get();
 			if (accepts(grid, deduction, technique, strict)) {
 				Optional<LearnPuzzle> puzzle = capture(technique, grid, solution);
@@ -275,12 +209,12 @@ public final class LearnPuzzleGenerator {
 				// This position leads nowhere usable, but a later one in the same solve still might, so the walk
 				// carries on rather than throwing the whole seed away.
 			}
-
+			
 			deduction.applyTo(grid);
 		}
 		return Optional.empty();
 	}
-
+	
 	/**
 	 * Turns the current position into an exercise, if the technique really does lead to a placement from here.
 	 * <p>
@@ -299,7 +233,7 @@ public final class LearnPuzzleGenerator {
 		if (explained.isEmpty()) {
 			return Optional.empty();
 		}
-
+		
 		// The walk starts by applying the technique itself, so the target is by construction a placement the player
 		// reaches *through* it rather than one they could have reached around it.
 		CandidateGrid walk = grid.copy();
@@ -308,7 +242,7 @@ public final class LearnPuzzleGenerator {
 			return build(technique, grid, solution, (Deduction.Placement) first, explained.get());
 		}
 		first.applyTo(walk);
-
+		
 		while (!walk.isComplete()) {
 			// Capped at the technique's own level: if reaching the placement needs something harder, the exercise
 			// would be unfinishable for a player who has only been taught this.
@@ -316,17 +250,17 @@ public final class LearnPuzzleGenerator {
 			if (next.isEmpty()) {
 				return Optional.empty();
 			}
-
+			
 			Deduction deduction = next.get();
 			if (deduction instanceof Deduction.Placement) {
 				return build(technique, grid, solution, (Deduction.Placement) deduction, explained.get());
 			}
-
+			
 			deduction.applyTo(walk);
 		}
 		return Optional.empty();
 	}
-
+	
 	/**
 	 * Checks whether this position is one the technique can be taught in.
 	 *
@@ -349,7 +283,7 @@ public final class LearnPuzzleGenerator {
 		// technique has nothing below it, so there is nothing to rule out.
 		return technique.level() <= 1 || TechniqueSolver.nextDeductionUpTo(grid, technique.level() - 1).isEmpty();
 	}
-
+	
 	/**
 	 * Builds the exercise from the position and the placement the technique leads to.
 	 *
@@ -367,7 +301,7 @@ public final class LearnPuzzleGenerator {
 		}
 		return Optional.of(new LearnPuzzle(technique, grid.values(), solution, pencil, placement.cell(), placement.digit(), explained.explanation()));
 	}
-
+	
 	/**
 	 * Returns the strategy implementing the given technique.
 	 *
@@ -383,7 +317,7 @@ public final class LearnPuzzleGenerator {
 		}
 		throw new IllegalStateException("No strategy implements " + technique);
 	}
-
+	
 	/**
 	 * Rebuilds a position as a {@link Puzzle}, for a caller that wants to hand it to the ordinary solver.
 	 * <p>
@@ -398,7 +332,59 @@ public final class LearnPuzzleGenerator {
 	 */
 	public static Puzzle asPuzzle(LearnPuzzle puzzle) {
 		Objects.requireNonNull(puzzle, "Puzzle must not be null");
-
+		
 		return Puzzle.classicOfGivens(GridSize.NINE, puzzle.board());
+	}
+	
+	/**
+	 * How much work a generation call may do before giving up.
+	 * <p>
+	 *     Both limits are checked, and whichever is reached first ends the search. The attempt count keeps a fast
+	 *     machine from spinning on a technique that never turns up; the deadline keeps a slow one from freezing an
+	 *     interface that has promised the player a few seconds.
+	 * </p>
+	 *
+	 * @param attempts The greatest number of seeds to try, at least one
+	 * @param timeoutMillis The greatest time to spend, in milliseconds, at least one
+	 */
+	public record Budget(int attempts, long timeoutMillis) {
+		
+		/**
+		 * Constructs a budget.
+		 *
+		 * @throws IllegalArgumentException If either limit is not positive
+		 */
+		public Budget {
+			if (attempts < 1) {
+				throw new IllegalArgumentException("Attempts must be positive, but was " + attempts);
+			}
+			if (timeoutMillis < 1) {
+				throw new IllegalArgumentException("Timeout must be positive, but was " + timeoutMillis);
+			}
+		}
+		
+		/**
+		 * Returns the budget a caller gets when it does not ask for a particular one.
+		 *
+		 * @return The default budget
+		 */
+		public static Budget standard() {
+			return new Budget(DEFAULT_ATTEMPTS, DEFAULT_TIMEOUT_MILLIS);
+		}
+		
+		/**
+		 * Returns a budget suited to generating offline, where taking a long time costs nobody anything.
+		 * <p>
+		 *     An hour per call, which sounds absurd until it is measured: five <i>distinct</i> examples of simple
+		 *     colouring took 456 seconds to find, of the X-Chain 358, and of the jellyfish 765, all of them past the
+		 *     five minutes this used to allow. A run that gives up short leaves a technique with a carousel it cannot
+		 *     fill, which is worse in every way than an export that takes an afternoon and is then committed forever.
+		 * </p>
+		 *
+		 * @return A generous budget
+		 */
+		public static Budget offline() {
+			return new Budget(100_000, 3_600_000L);
+		}
 	}
 }

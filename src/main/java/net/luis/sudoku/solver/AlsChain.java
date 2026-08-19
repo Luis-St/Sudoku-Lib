@@ -44,7 +44,7 @@ public final class AlsChain implements TechniqueStrategy {
 	public Optional<Deduction> find(CandidateGrid grid) {
 		return this.scan(grid, null);
 	}
-
+	
 	/**
 	 * Explains the chain by showing the three sets, the two junction digits that each pass the argument along, and the
 	 * digit the two ends share and one of them therefore holds.
@@ -57,7 +57,7 @@ public final class AlsChain implements TechniqueStrategy {
 		Explanation.Builder builder = Explanation.builder(Technique.ALS_CHAIN);
 		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
 	}
-
+	
 	private Optional<Deduction> scan(CandidateGrid grid, Explanation.Builder explanation) {
 		List<AlmostLockedSets.Als> sets = AlmostLockedSets.of(grid);
 		for (AlmostLockedSets.Als first : sets) {

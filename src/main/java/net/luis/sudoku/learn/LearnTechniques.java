@@ -2,10 +2,7 @@ package net.luis.sudoku.learn;
 
 import net.luis.sudoku.solver.Technique;
 
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Which {@link Technique techniques} the learn area teaches, and therefore which ones puzzles are generated for,
@@ -34,7 +31,12 @@ import java.util.Set;
  * @see Technique
  */
 public final class LearnTechniques {
-
+	
+	private static final Set<Technique> EXCLUDED = EnumSet.of(Technique.LAW_OF_LEFTOVERS, Technique.MULTI_COLOURING);
+	private static final List<Technique> TAUGHT = List.copyOf(EnumSet.allOf(Technique.class).stream()
+		.filter(technique -> technique.level() <= MAX_LEVEL)
+		.filter(technique -> !EXCLUDED.contains(technique))
+		.toList());
 	/**
 	 * The hardest {@link Technique#level() level} the learn area covers.
 	 * <p>
@@ -43,16 +45,9 @@ public final class LearnTechniques {
 	 * </p>
 	 */
 	public static final int MAX_LEVEL = 14;
-
-	private static final Set<Technique> EXCLUDED = EnumSet.of(Technique.LAW_OF_LEFTOVERS, Technique.MULTI_COLOURING);
-
-	private static final List<Technique> TAUGHT = List.copyOf(EnumSet.allOf(Technique.class).stream()
-		.filter(technique -> technique.level() <= MAX_LEVEL)
-		.filter(technique -> !EXCLUDED.contains(technique))
-		.toList());
-
+	
 	private LearnTechniques() {}
-
+	
 	/**
 	 * Returns every technique the learn area teaches, in {@link Technique} declaration order, which is difficulty
 	 * order.
@@ -62,7 +57,7 @@ public final class LearnTechniques {
 	public static List<Technique> taught() {
 		return TAUGHT;
 	}
-
+	
 	/**
 	 * Returns how many techniques the learn area teaches.
 	 * <p>
@@ -74,7 +69,7 @@ public final class LearnTechniques {
 	public static int count() {
 		return TAUGHT.size();
 	}
-
+	
 	/**
 	 * Checks whether the learn area teaches the given technique.
 	 *
@@ -84,7 +79,7 @@ public final class LearnTechniques {
 	 */
 	public static boolean isTaught(Technique technique) {
 		Objects.requireNonNull(technique, "Technique must not be null");
-
+		
 		return TAUGHT.contains(technique);
 	}
 }

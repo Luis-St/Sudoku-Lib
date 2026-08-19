@@ -1,8 +1,6 @@
 package net.luis.sudoku.solver;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * The Sue de Coq: a region-line intersection whose candidates are shared out between one cell on the line and one in
@@ -47,7 +45,7 @@ public final class SueDeCoq implements TechniqueStrategy {
 	public Optional<Deduction> find(CandidateGrid grid) {
 		return this.search(grid, null);
 	}
-
+	
 	/**
 	 * Explains the pattern by showing the intersection, the two extra cells that complete it, and the fact the whole
 	 * argument rests on: as many cells as digits, none of which can repeat, so every digit is used up inside.
@@ -60,7 +58,7 @@ public final class SueDeCoq implements TechniqueStrategy {
 		Explanation.Builder builder = Explanation.builder(Technique.SUE_DE_COQ);
 		return this.search(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
 	}
-
+	
 	private Optional<Deduction> search(CandidateGrid grid, Explanation.Builder explanation) {
 		int n = grid.n();
 		for (int region = 0; region < grid.partition().regionCount(); region++) {

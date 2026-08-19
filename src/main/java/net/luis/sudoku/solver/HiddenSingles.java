@@ -1,8 +1,6 @@
 package net.luis.sudoku.solver;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * The shared scan behind {@link HiddenSingleRegion} and {@link HiddenSingleLine}.
@@ -42,7 +40,7 @@ final class HiddenSingles {
 		}
 		return Optional.empty();
 	}
-
+	
 	/**
 	 * Runs {@link #scan(CandidateGrid, List, Technique)} and explains its result as cross-hatching.
 	 * <p>
@@ -62,20 +60,20 @@ final class HiddenSingles {
 			Deduction.Placement placement = (Deduction.Placement) deduction;
 			int digit = placement.digit();
 			int[] unit = unitContaining(units, placement.cell());
-
+			
 			List<PatternCell> blocked = new ArrayList<>();
 			for (int cell : unit) {
 				if (cell == placement.cell() || !grid.isEmpty(cell)) {
 					continue;
 				}
-
+				
 				blocked.add(PatternCell.of(cell, CellRole.CONTEXT, digit));
 				int blocker = Explanations.peerHolding(grid, cell, digit);
 				if (blocker >= 0) {
 					blocked.add(PatternCell.of(blocker, CellRole.BASE, digit));
 				}
 			}
-
+			
 			return new ExplainedDeduction(deduction, Explanation.builder(technique)
 				.focusDigit(digit)
 				.focusUnits(digit, List.of(Explanations.refOf(grid, unit, placement.cell())))
@@ -84,7 +82,7 @@ final class HiddenSingles {
 				.build());
 		});
 	}
-
+	
 	/**
 	 * Returns the first of the scanned units that holds the given cell, which is the unit the scan argued in.
 	 *
@@ -103,5 +101,5 @@ final class HiddenSingles {
 		// Unreachable: the placement came from one of these very units.
 		throw new IllegalStateException("Placed cell " + cell + " lies in none of the scanned units");
 	}
-
+	
 }

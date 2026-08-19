@@ -1,8 +1,6 @@
 package net.luis.sudoku.solver;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * Why a technique's {@link Deduction} follows, as an ordered list of highlight steps.
@@ -23,7 +21,7 @@ import java.util.Objects;
  * @see ExplainedDeduction
  */
 public record Explanation(Technique technique, List<ExplanationStep> steps) {
-
+	
 	/**
 	 * Constructs an explanation, copying the step list so the record stays an immutable value.
 	 *
@@ -33,14 +31,14 @@ public record Explanation(Technique technique, List<ExplanationStep> steps) {
 	public Explanation {
 		Objects.requireNonNull(technique, "Technique must not be null");
 		Objects.requireNonNull(steps, "Steps must not be null");
-
+		
 		if (steps.isEmpty()) {
 			throw new IllegalArgumentException("An explanation must have at least one step");
 		}
-
+		
 		steps = List.copyOf(steps);
 	}
-
+	
 	/**
 	 * Builds the explanation every strategy can give without any extra work: the conclusion alone.
 	 * <p>
@@ -55,13 +53,13 @@ public record Explanation(Technique technique, List<ExplanationStep> steps) {
 	 */
 	public static Explanation conclusionOnly(Deduction deduction) {
 		Objects.requireNonNull(deduction, "Deduction must not be null");
-
+		
 		if (deduction instanceof Deduction.Placement placement) {
 			return new Explanation(placement.technique(), List.of(
 				ExplanationStep.of(StepKind.PLACEMENT, placement.digit(), List.of(PatternCell.of(placement.cell(), CellRole.TARGET, placement.digit())))
 			));
 		}
-
+		
 		Deduction.Eliminations eliminations = (Deduction.Eliminations) deduction;
 		int[] cells = eliminations.cells();
 		int[] digits = eliminations.digits();
@@ -71,7 +69,18 @@ public record Explanation(Technique technique, List<ExplanationStep> steps) {
 		}
 		return new Explanation(eliminations.technique(), List.of(ExplanationStep.of(StepKind.ELIMINATION, 0, targets)));
 	}
-
+	
+	/**
+	 * Creates a builder for an explanation of the given technique.
+	 *
+	 * @param technique The technique being explained
+	 * @return A fresh builder
+	 * @throws NullPointerException If the technique is null
+	 */
+	public static Builder builder(Technique technique) {
+		return new Builder(technique);
+	}
+	
 	/**
 	 * Checks whether this explanation only restates the conclusion, without showing the pattern that proves it.
 	 * <p>
@@ -89,7 +98,7 @@ public record Explanation(Technique technique, List<ExplanationStep> steps) {
 		StepKind kind = this.steps.get(0).kind();
 		return kind == StepKind.PLACEMENT || kind == StepKind.ELIMINATION;
 	}
-
+	
 	/**
 	 * Returns every cell any step highlights, flattened, keeping the order the steps introduced them in.
 	 * <p>
@@ -106,30 +115,19 @@ public record Explanation(Technique technique, List<ExplanationStep> steps) {
 		}
 		return List.copyOf(result);
 	}
-
-	/**
-	 * Creates a builder for an explanation of the given technique.
-	 *
-	 * @param technique The technique being explained
-	 * @return A fresh builder
-	 * @throws NullPointerException If the technique is null
-	 */
-	public static Builder builder(Technique technique) {
-		return new Builder(technique);
-	}
-
+	
 	/**
 	 * Accumulates the steps of an explanation, so a strategy can describe its pattern in the order it found it.
 	 */
 	public static final class Builder {
-
+		
 		private final Technique technique;
 		private final List<ExplanationStep> steps = new ArrayList<>();
-
+		
 		private Builder(Technique technique) {
 			this.technique = Objects.requireNonNull(technique, "Technique must not be null");
 		}
-
+		
 		/**
 		 * Adds a step that names the digit the whole argument is about.
 		 *
@@ -140,7 +138,7 @@ public record Explanation(Technique technique, List<ExplanationStep> steps) {
 			this.steps.add(ExplanationStep.ofUnits(StepKind.FOCUS_DIGIT, digit, List.of()));
 			return this;
 		}
-
+		
 		/**
 		 * Adds a step that outlines the units the pattern is defined on.
 		 *
@@ -152,7 +150,7 @@ public record Explanation(Technique technique, List<ExplanationStep> steps) {
 			this.steps.add(ExplanationStep.ofUnits(StepKind.FOCUS_UNIT, digit, units));
 			return this;
 		}
-
+		
 		/**
 		 * Adds a step that shows part of the pattern.
 		 *
@@ -164,7 +162,7 @@ public record Explanation(Technique technique, List<ExplanationStep> steps) {
 			this.steps.add(ExplanationStep.of(StepKind.PATTERN, digit, cells));
 			return this;
 		}
-
+		
 		/**
 		 * Adds a step that shows one inference of a chain or wing.
 		 *
@@ -176,7 +174,7 @@ public record Explanation(Technique technique, List<ExplanationStep> steps) {
 			this.steps.add(ExplanationStep.of(StepKind.LINK, digit, cells));
 			return this;
 		}
-
+		
 		/**
 		 * Adds the reasoning beat between the pattern and its conclusion.
 		 *
@@ -188,7 +186,7 @@ public record Explanation(Technique technique, List<ExplanationStep> steps) {
 			this.steps.add(ExplanationStep.of(StepKind.IMPLICATION, digit, cells));
 			return this;
 		}
-
+		
 		/**
 		 * Adds the conclusion, derived from the deduction itself so it can never disagree with it.
 		 *
@@ -200,7 +198,7 @@ public record Explanation(Technique technique, List<ExplanationStep> steps) {
 			this.steps.addAll(Explanation.conclusionOnly(deduction).steps());
 			return this;
 		}
-
+		
 		/**
 		 * Builds the explanation.
 		 *

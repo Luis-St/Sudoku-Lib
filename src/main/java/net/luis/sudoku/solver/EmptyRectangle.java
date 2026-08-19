@@ -1,8 +1,6 @@
 package net.luis.sudoku.solver;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * The Empty Rectangle: a digit whose candidates in a region form an L across one row and one column of that region,
@@ -48,7 +46,7 @@ public final class EmptyRectangle implements TechniqueStrategy {
 	public Optional<Deduction> find(CandidateGrid grid) {
 		return this.scan(grid, null);
 	}
-
+	
 	/**
 	 * Explains the Empty Rectangle by showing the region's L, the two arms the digit is therefore confined to, and the
 	 * conjugate pair that closes both of them off at once if the eliminated cell held the digit.
@@ -61,7 +59,7 @@ public final class EmptyRectangle implements TechniqueStrategy {
 		Explanation.Builder builder = Explanation.builder(Technique.EMPTY_RECTANGLE);
 		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
 	}
-
+	
 	private Optional<Deduction> scan(CandidateGrid grid, Explanation.Builder explanation) {
 		for (int digit = 1; digit <= grid.n(); digit++) {
 			for (int region = 0; region < grid.partition().regionCount(); region++) {

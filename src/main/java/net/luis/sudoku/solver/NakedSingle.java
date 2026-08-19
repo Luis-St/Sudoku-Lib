@@ -42,7 +42,7 @@ public final class NakedSingle implements TechniqueStrategy {
 		}
 		return Optional.empty();
 	}
-
+	
 	/**
 	 * Explains the single by showing what emptied the cell: its three units, and the peer that rules out each of the
 	 * digits it no longer has.

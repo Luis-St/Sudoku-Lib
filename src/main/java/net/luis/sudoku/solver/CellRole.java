@@ -14,7 +14,7 @@ package net.luis.sudoku.solver;
  * @see Explanation
  */
 public enum CellRole {
-
+	
 	/**
 	 * A cell of the pattern with no more specific part to play, such as one cell of a naked subset.
 	 */

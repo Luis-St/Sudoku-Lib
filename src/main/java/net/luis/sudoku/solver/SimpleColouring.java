@@ -46,7 +46,7 @@ public final class SimpleColouring implements TechniqueStrategy {
 	public Optional<Deduction> find(CandidateGrid grid) {
 		return this.scan(grid, null);
 	}
-
+	
 	/**
 	 * Explains the colouring by painting the whole cluster in its two colours and then showing which of the two rules
 	 * fired: a colour that meets itself in a unit, or a cell outside the cluster that sees both colours.
@@ -59,7 +59,7 @@ public final class SimpleColouring implements TechniqueStrategy {
 		Explanation.Builder builder = Explanation.builder(Technique.SIMPLE_COLOURING);
 		return this.scan(grid, builder).map(deduction -> new ExplainedDeduction(deduction, builder.conclusion(deduction).build()));
 	}
-
+	
 	private Optional<Deduction> scan(CandidateGrid grid, Explanation.Builder explanation) {
 		for (int digit = 1; digit <= grid.n(); digit++) {
 			for (Colourings.Cluster cluster : Colourings.ofDigit(grid, digit)) {

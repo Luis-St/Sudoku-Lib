@@ -11,7 +11,7 @@ package net.luis.sudoku.solver;
  * @see UnitRef
  */
 public enum UnitKind {
-
+	
 	/**
 	 * A horizontal line of the grid.
 	 */
