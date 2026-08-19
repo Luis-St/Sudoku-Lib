@@ -34,7 +34,9 @@ public final class LearnTechniques {
 	
 	private static final Set<Technique> EXCLUDED = EnumSet.of(Technique.LAW_OF_LEFTOVERS, Technique.MULTI_COLOURING);
 	private static final List<Technique> TAUGHT = List.copyOf(EnumSet.allOf(Technique.class).stream()
-		.filter(technique -> technique.level() <= MAX_LEVEL)
+		// Qualified: an unqualified MAX_LEVEL here is a forward reference to a constant declared further down, which
+		// javac rejects outright.
+		.filter(technique -> technique.level() <= LearnTechniques.MAX_LEVEL)
 		.filter(technique -> !EXCLUDED.contains(technique))
 		.toList());
 	/**

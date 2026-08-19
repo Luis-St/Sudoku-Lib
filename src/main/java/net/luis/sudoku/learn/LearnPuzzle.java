@@ -1,8 +1,11 @@
 package net.luis.sudoku.learn;
 
+import net.luis.sudoku.grid.GridSize;
+import net.luis.sudoku.grid.Puzzle;
 import net.luis.sudoku.solver.*;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 /**
  * One exercise of the learn area: a 9x9 position in which a chosen technique is exactly the next thing to do.
@@ -192,6 +195,177 @@ public record LearnPuzzle(Technique technique, int[] board, int[] solution, int[
 		}
 		key.add(String.join(",", blocks));
 		return key.toString();
+	}
+	
+	/**
+	 * Rebuilds the position as the player meets it: the board as givens, with the shipped candidates written over the
+	 * freshly derived ones.
+	 * <p>
+	 *     Deriving candidates from the board alone is not the same grid. The {@link #pencilMarks() pencil marks} are
+	 *     the candidate state the solver left behind, after the easier techniques did their eliminating, and a grid
+	 *     without those eliminations is one in which the taught technique is no longer what applies next.
+	 * </p>
+	 *
+	 * @return The working grid of this exercise
+	 */
+	public CandidateGrid grid() {
+		CandidateGrid grid = new CandidateGrid(Puzzle.classicOfGivens(GridSize.NINE, this.board));
+		for (int cell = 0; cell < CELL_COUNT; cell++) {
+			if (!grid.isEmpty(cell)) {
+				continue;
+			}
+			
+			int surplus = grid.candidates(cell) & ~this.pencilMarks[cell];
+			while (surplus != 0) {
+				grid.eliminate(cell, Integer.numberOfTrailingZeros(surplus));
+				surplus &= surplus - 1;
+			}
+		}
+		return grid;
+	}
+	
+	/**
+	 * Returns every cell this exercise's technique places a digit in, in this position.
+	 * <p>
+	 *     {@link #targetCell()} is one of them and usually the only one, but it is not the only <i>right answer</i>. A
+	 *     strategy returns the first deduction it finds in scan order, and the easy techniques regularly have several:
+	 *     a position can hold three full houses at once, and a player who fills the third of them has used the
+	 *     technique exactly as well as one who filled the first.
+	 * </p>
+	 * <p>
+	 *     Only placements found in <i>this</i> position count. The scan continues past each one by placing it, since
+	 *     that is the only way to reach the next, but a placement whose explanation rests on a cell an earlier one
+	 *     filled is left out: it did not follow from the position the player was given, it followed from the position
+	 *     plus a move they have not made.
+	 * </p>
+	 * <p>
+	 *     A technique that only eliminates has no placements of its own, and this returns the target alone: what such
+	 *     an exercise asks for is the placement the eliminations unlock, which is the target by construction.
+	 * </p>
+	 *
+	 * @return The row-major cell indices, the target first, without repeats
+	 */
+	public int[] placementCells() {
+		List<Integer> cells = this.walk(null);
+		int[] result = new int[cells.size()];
+		for (int index = 0; index < result.length; index++) {
+			result[index] = cells.get(index);
+		}
+		return result;
+	}
+	
+	/**
+	 * Returns why the technique places a digit in the given cell, in this position.
+	 * <p>
+	 *     The shipped {@link #explanation()} argues for the target and for nothing else, so it is the wrong picture to
+	 *     draw over a board where the player solved one of the <i>other</i> cells the technique proves: it would
+	 *     highlight a pattern somewhere else on the grid and write the conclusion into a cell they never touched. This
+	 *     builds the argument for the cell that was actually filled, from the same strategy that judged it.
+	 * </p>
+	 *
+	 * @param cell The row-major cell index
+	 * @return The explanation of that placement, or empty if the technique does not place a digit there
+	 */
+	public Optional<Explanation> explanationOf(int cell) {
+		if (cell == this.targetCell) {
+			return Optional.of(this.explanation);
+		}
+		
+		List<Explanation> found = new ArrayList<>();
+		this.walk(explained -> {
+			if (((Deduction.Placement) explained.deduction()).cell() == cell) {
+				found.add(explained.explanation());
+			}
+		});
+		return found.isEmpty() ? Optional.empty() : Optional.of(found.get(0));
+	}
+	
+	/**
+	 * Replays the technique over this position, collecting the placements it proves.
+	 * <p>
+	 *     The walk places every deduction it finds, because the strategy returns only the first one in scan order and
+	 *     there is no other way to reach the second. What a placement is <i>accepted</i> on is the untouched position:
+	 *     an explanation naming any cell an earlier step of the walk filled is a step the player could not have taken
+	 *     from the board they were given, so it is neither collected nor reported.
+	 * </p>
+	 *
+	 * @param onAccepted Called with each accepted placement and its explanation, or null to only collect the cells
+	 * @return The accepted cells, the target first, without repeats
+	 */
+	private List<Integer> walk(Consumer<ExplainedDeduction> onAccepted) {
+		CandidateGrid grid = this.grid();
+		TechniqueStrategy strategy = null;
+		for (TechniqueStrategy candidate : TechniqueSolver.STRATEGIES) {
+			if (candidate.technique() == this.technique) {
+				strategy = candidate;
+				break;
+			}
+		}
+		
+		List<Integer> cells = new ArrayList<>();
+		cells.add(this.targetCell);
+		// A flag per cell rather than a set: the scan order of this walk is the technique's own, and a hashed
+		// collection in the middle of it is exactly the kind of thing `GenerationDeterminismTest` forbids.
+		boolean[] placed = new boolean[CELL_COUNT];
+		for (int guard = 0; strategy != null && guard < CELL_COUNT; guard++) {
+			Optional<ExplainedDeduction> found = strategy.findExplained(grid);
+			if (found.isEmpty() || !(found.get().deduction() instanceof Deduction.Placement placement)) {
+				break;
+			}
+			
+			boolean restsOnAMove = false;
+			for (PatternCell cell : found.get().explanation().allCells()) {
+				if (placed[cell.cell()]) {
+					restsOnAMove = true;
+					break;
+				}
+			}
+			if (!restsOnAMove) {
+				if (!cells.contains(placement.cell())) {
+					cells.add(placement.cell());
+				}
+				if (onAccepted != null) {
+					onAccepted.accept(found.get());
+				}
+			}
+			
+			placed[placement.cell()] = true;
+			grid.place(placement.cell(), placement.digit());
+		}
+		return cells;
+	}
+	
+	/**
+	 * Reports whether writing the given digit into the given cell is this exercise's technique being used.
+	 * <p>
+	 *     This is what the training judges a solve by, and it is deliberately wider than "is this the target": every
+	 *     cell of {@link #placementCells()} is the technique applied to this position, and an exercise that accepted
+	 *     only one of several equally correct answers would record a player who used the technique perfectly as having
+	 *     solved the position without it.
+	 * </p>
+	 *
+	 * @param cell The row-major cell index the player wrote in
+	 * @param digit The digit they wrote
+	 * @return True if the technique proves that digit belongs in that cell
+	 */
+	public boolean proves(int cell, int digit) {
+		if (cell < 0 || cell >= CELL_COUNT || this.board[cell] != 0) {
+			return false;
+		}
+		// A digit that is not the solution is not proof of anything, whichever cell it went into.
+		if (this.solution[cell] != digit) {
+			return false;
+		}
+		if (cell == this.targetCell) {
+			return true;
+		}
+		
+		for (int placement : this.placementCells()) {
+			if (placement == cell) {
+				return true;
+			}
+		}
+		return false;
 	}
 	
 	/**
