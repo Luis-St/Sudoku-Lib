@@ -68,21 +68,60 @@ public final class LastDigit implements TechniqueStrategy {
 	 */
 	@Override
 	public Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
-		return this.find(grid).map(deduction -> {
-			Deduction.Placement placement = (Deduction.Placement) deduction;
-			int digit = placement.digit();
-			List<PatternCell> placedCells = new ArrayList<>();
+		return this.find(grid).map(deduction -> this.explain(grid, (Deduction.Placement) deduction));
+	}
+	
+	/**
+	 * Returns every digit that is down to its final cell, not only the first: two digits can both be one placement
+	 * short of complete, and either one is this technique applied.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The placements, in ascending digit order
+	 */
+	@Override
+	public List<ExplainedDeduction> findAllPlacements(CandidateGrid grid) {
+		int regionCount = grid.partition().regionCount();
+		List<ExplainedDeduction> found = new ArrayList<>();
+		for (int digit = 1; digit <= grid.n(); digit++) {
+			int placed = 0;
+			int candidates = 0;
+			int target = -1;
 			for (int cell = 0; cell < grid.cellCount(); cell++) {
 				if (grid.value(cell) == digit) {
-					placedCells.add(PatternCell.of(cell, CellRole.CONTEXT, digit));
+					placed++;
+				} else if (grid.hasCandidate(cell, digit)) {
+					candidates++;
+					target = cell;
 				}
 			}
 			
-			return new ExplainedDeduction(deduction, Explanation.builder(Technique.LAST_DIGIT)
-				.focusDigit(digit)
-				.pattern(digit, placedCells)
-				.conclusion(deduction)
-				.build());
-		});
+			if (placed == regionCount - 1 && candidates == 1) {
+				found.add(this.explain(grid, new Deduction.Placement(Technique.LAST_DIGIT, target, digit)));
+			}
+		}
+		return found;
+	}
+	
+	/**
+	 * Builds the argument for one last digit: every cell that already holds it, which is the count it rests on.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @param placement The placement to explain
+	 * @return The placement and its explanation
+	 */
+	private ExplainedDeduction explain(CandidateGrid grid, Deduction.Placement placement) {
+		int digit = placement.digit();
+		List<PatternCell> placedCells = new ArrayList<>();
+		for (int cell = 0; cell < grid.cellCount(); cell++) {
+			if (grid.value(cell) == digit) {
+				placedCells.add(PatternCell.of(cell, CellRole.CONTEXT, digit));
+			}
+		}
+		
+		return new ExplainedDeduction(placement, Explanation.builder(Technique.LAST_DIGIT)
+			.focusDigit(digit)
+			.pattern(digit, placedCells)
+			.conclusion(placement)
+			.build());
 	}
 }

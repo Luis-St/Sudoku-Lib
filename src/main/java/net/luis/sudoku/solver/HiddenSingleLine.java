@@ -1,5 +1,7 @@
 package net.luis.sudoku.solver;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -59,5 +61,20 @@ public final class HiddenSingleLine implements TechniqueStrategy {
 			return rows;
 		}
 		return HiddenSingles.scanExplained(grid, grid.columns(), Technique.HIDDEN_SINGLE_LINE);
+	}
+	
+	/**
+	 * Returns every digit confined to a single cell of a row or a column, not only the first, in the same
+	 * rows-before-columns order the scan uses.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The placements, in line scan order
+	 */
+	@Override
+	public List<ExplainedDeduction> findAllPlacements(CandidateGrid grid) {
+		List<ExplainedDeduction> found = new ArrayList<>();
+		HiddenSingles.scanAllExplained(grid, grid.rows(), Technique.HIDDEN_SINGLE_LINE, found);
+		HiddenSingles.scanAllExplained(grid, grid.columns(), Technique.HIDDEN_SINGLE_LINE, found);
+		return found;
 	}
 }

@@ -5,7 +5,6 @@ import net.luis.sudoku.grid.Puzzle;
 import net.luis.sudoku.solver.*;
 
 import java.util.*;
-import java.util.function.Consumer;
 
 /**
  * One exercise of the learn area: a 9x9 position in which a chosen technique is exactly the next thing to do.
@@ -246,7 +245,16 @@ public record LearnPuzzle(Technique technique, int[] board, int[] solution, int[
 	 * @return The row-major cell indices, the target first, without repeats
 	 */
 	public int[] placementCells() {
-		List<Integer> cells = this.walk(null);
+		List<ExplainedDeduction> placements = this.placements();
+		List<Integer> cells = new ArrayList<>();
+		cells.add(this.targetCell);
+		for (ExplainedDeduction explained : placements) {
+			int cell = ((Deduction.Placement) explained.deduction()).cell();
+			if (!cells.contains(cell)) {
+				cells.add(cell);
+			}
+		}
+		
 		int[] result = new int[cells.size()];
 		for (int index = 0; index < result.length; index++) {
 			result[index] = cells.get(index);
@@ -271,68 +279,34 @@ public record LearnPuzzle(Technique technique, int[] board, int[] solution, int[
 			return Optional.of(this.explanation);
 		}
 		
-		List<Explanation> found = new ArrayList<>();
-		this.walk(explained -> {
+		for (ExplainedDeduction explained : this.placements()) {
 			if (((Deduction.Placement) explained.deduction()).cell() == cell) {
-				found.add(explained.explanation());
+				return Optional.of(explained.explanation());
 			}
-		});
-		return found.isEmpty() ? Optional.empty() : Optional.of(found.get(0));
+		}
+		return Optional.empty();
 	}
 	
 	/**
-	 * Replays the technique over this position, collecting the placements it proves.
+	 * Asks this exercise's technique what it places in this position.
 	 * <p>
-	 *     The walk places every deduction it finds, because the strategy returns only the first one in scan order and
-	 *     there is no other way to reach the second. What a placement is <i>accepted</i> on is the untouched position:
-	 *     an explanation naming any cell an earlier step of the walk filled is a step the player could not have taken
-	 *     from the board they were given, so it is neither collected nor reported.
+	 *     Every placement holds in the position <i>as the player was given it</i>: nothing is applied between the
+	 *     finds, so no answer here depends on another move having been made first. That is the whole reason
+	 *     {@link TechniqueStrategy#findAllPlacements(CandidateGrid)} exists rather than this walking the technique
+	 *     forwards and collecting what it turns up. Walking applies each find to reach the next, and the grid it then
+	 *     scans is no longer the player's: cells they could have solved get filled in by the walk before it ever looks
+	 *     at the unit that proves them, and the answer is lost.
 	 * </p>
 	 *
-	 * @param onAccepted Called with each accepted placement and its explanation, or null to only collect the cells
-	 * @return The accepted cells, the target first, without repeats
+	 * @return The placements, in the technique's own scan order, empty for a technique that only eliminates
 	 */
-	private List<Integer> walk(Consumer<ExplainedDeduction> onAccepted) {
-		CandidateGrid grid = this.grid();
-		TechniqueStrategy strategy = null;
-		for (TechniqueStrategy candidate : TechniqueSolver.STRATEGIES) {
-			if (candidate.technique() == this.technique) {
-				strategy = candidate;
-				break;
+	private List<ExplainedDeduction> placements() {
+		for (TechniqueStrategy strategy : TechniqueSolver.STRATEGIES) {
+			if (strategy.technique() == this.technique) {
+				return strategy.findAllPlacements(this.grid());
 			}
 		}
-		
-		List<Integer> cells = new ArrayList<>();
-		cells.add(this.targetCell);
-		// A flag per cell rather than a set: the scan order of this walk is the technique's own, and a hashed
-		// collection in the middle of it is exactly the kind of thing `GenerationDeterminismTest` forbids.
-		boolean[] placed = new boolean[CELL_COUNT];
-		for (int guard = 0; strategy != null && guard < CELL_COUNT; guard++) {
-			Optional<ExplainedDeduction> found = strategy.findExplained(grid);
-			if (found.isEmpty() || !(found.get().deduction() instanceof Deduction.Placement placement)) {
-				break;
-			}
-			
-			boolean restsOnAMove = false;
-			for (PatternCell cell : found.get().explanation().allCells()) {
-				if (placed[cell.cell()]) {
-					restsOnAMove = true;
-					break;
-				}
-			}
-			if (!restsOnAMove) {
-				if (!cells.contains(placement.cell())) {
-					cells.add(placement.cell());
-				}
-				if (onAccepted != null) {
-					onAccepted.accept(found.get());
-				}
-			}
-			
-			placed[placement.cell()] = true;
-			grid.place(placement.cell(), placement.digit());
-		}
-		return cells;
+		return List.of();
 	}
 	
 	/**

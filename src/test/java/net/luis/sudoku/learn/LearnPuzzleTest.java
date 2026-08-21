@@ -3,11 +3,17 @@ package net.luis.sudoku.learn;
 import net.luis.sudoku.solver.*;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.*;
 
 /**
  * Test class for {@link LearnPuzzle}, and mainly for what the training judges a solve by.
@@ -153,6 +159,38 @@ class LearnPuzzleTest {
 			if (board[cell] == 0 && !placements.contains(cell)) {
 				assertTrue(puzzle.explanationOf(cell).isEmpty(), "Cell " + cell + " is not this technique's to place and was explained");
 			}
+		}
+	}
+	
+	/**
+	 * The bug this file's method was rewritten for. Full house exercise 3 of level 2 has two of them: the target in
+	 * column 3, and the last empty cell of the top-right box. The first walked the technique forwards, applying each
+	 * find to reach the next, and the cascade of new full houses that opened up filled the box's cell before the scan
+	 * ever reached the regions, so the player who solved it was told they had not used the technique.
+	 */
+	@Test
+	void acceptsAFullHouseTheScanReachesLateInTheBundledExerciseThatReportedIt() {
+		LearnPuzzle puzzle = LearnAsset.read(bundled("full_house")).exercise(2, 2);
+		int cell = 1 * LearnPuzzle.SIZE + 6;
+		
+		assertEquals(6 * LearnPuzzle.SIZE + 2, puzzle.targetCell(), "The exercise is not the one the report was about");
+		assertTrue(puzzle.proves(cell, puzzle.solution()[cell]), "The second full house of the position was refused");
+		assertTrue(puzzle.explanationOf(cell).isPresent(), "The second full house of the position has no argument of its own");
+	}
+	
+	/**
+	 * Reads a bundled learn asset from the Android app, which is where the exported content lives.
+	 *
+	 * @param technique The asset's file name without its extension
+	 * @return The asset's JSON
+	 */
+	private static String bundled(String technique) {
+		Path asset = Path.of(System.getProperty("user.dir")).getParent().resolve("Sudoku-Android/app/src/main/assets/learn/" + technique + ".json");
+		assumeTrue(Files.isReadable(asset), "The exported learn assets are not next to this checkout");
+		try {
+			return Files.readString(asset);
+		} catch (IOException e) {
+			throw new UncheckedIOException(e);
 		}
 	}
 	

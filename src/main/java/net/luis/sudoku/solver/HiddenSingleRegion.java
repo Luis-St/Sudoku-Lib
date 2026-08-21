@@ -1,5 +1,7 @@
 package net.luis.sudoku.solver;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -52,5 +54,18 @@ public final class HiddenSingleRegion implements TechniqueStrategy {
 	@Override
 	public Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
 		return HiddenSingles.scanExplained(grid, grid.regions(), Technique.HIDDEN_SINGLE_REGION);
+	}
+	
+	/**
+	 * Returns every digit confined to a single cell of a region, not only the first.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The placements, in region scan order
+	 */
+	@Override
+	public List<ExplainedDeduction> findAllPlacements(CandidateGrid grid) {
+		List<ExplainedDeduction> found = new ArrayList<>();
+		HiddenSingles.scanAllExplained(grid, grid.regions(), Technique.HIDDEN_SINGLE_REGION, found);
+		return found;
 	}
 }

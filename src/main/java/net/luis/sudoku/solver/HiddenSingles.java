@@ -56,31 +56,93 @@ final class HiddenSingles {
 	 * @return The first forced placement and its explanation, or empty if there is none
 	 */
 	static Optional<ExplainedDeduction> scanExplained(CandidateGrid grid, List<int[]> units, Technique technique) {
-		return scan(grid, units, technique).map(deduction -> {
-			Deduction.Placement placement = (Deduction.Placement) deduction;
-			int digit = placement.digit();
-			int[] unit = unitContaining(units, placement.cell());
-			
-			List<PatternCell> blocked = new ArrayList<>();
-			for (int cell : unit) {
-				if (cell == placement.cell() || !grid.isEmpty(cell)) {
+		return scan(grid, units, technique).map(deduction -> explain(grid, units, technique, (Deduction.Placement) deduction));
+	}
+	
+	/**
+	 * Scans the given units for <b>every</b> digit confined to a single cell, rather than only the first.
+	 * <p>
+	 *     A digit confined to one cell of a row is regularly confined to one cell of that cell's region as well, and
+	 *     several unrelated digits are regularly confined at once. The first is the same placement twice and is kept
+	 *     once, argued in the unit the scan met first; the rest are genuinely different placements and are all kept.
+	 * </p>
+	 *
+	 * @param grid The working grid; never mutated
+	 * @param units The units to scan, in the order they should be visited
+	 * @param technique The technique to attribute the placements to
+	 * @param into The list to add to, so a caller scanning rows and then columns collects both
+	 */
+	static void scanAllExplained(CandidateGrid grid, List<int[]> units, Technique technique, List<ExplainedDeduction> into) {
+		for (int[] unit : units) {
+			for (int digit = 1; digit <= grid.n(); digit++) {
+				int seen = 0;
+				int target = -1;
+				for (int cell : unit) {
+					if (grid.hasCandidate(cell, digit)) {
+						seen++;
+						target = cell;
+					}
+				}
+				
+				if (seen != 1 || holds(into, target, digit)) {
 					continue;
 				}
 				
-				blocked.add(PatternCell.of(cell, CellRole.CONTEXT, digit));
-				int blocker = Explanations.peerHolding(grid, cell, digit);
-				if (blocker >= 0) {
-					blocked.add(PatternCell.of(blocker, CellRole.BASE, digit));
-				}
+				into.add(explain(grid, units, technique, new Deduction.Placement(technique, target, digit)));
+			}
+		}
+	}
+	
+	/**
+	 * Returns whether the given placement has already been collected.
+	 *
+	 * @param found The placements collected so far
+	 * @param cell The cell of the placement
+	 * @param digit The digit of the placement
+	 * @return True if it is already there
+	 */
+	private static boolean holds(List<ExplainedDeduction> found, int cell, int digit) {
+		for (ExplainedDeduction explained : found) {
+			Deduction.Placement placement = (Deduction.Placement) explained.deduction();
+			if (placement.cell() == cell && placement.digit() == digit) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	/**
+	 * Builds the cross-hatching argument for one hidden single.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @param units The units that were scanned, in scan order
+	 * @param technique The technique to attribute the placement to
+	 * @param placement The placement to explain
+	 * @return The placement and its explanation
+	 */
+	private static ExplainedDeduction explain(CandidateGrid grid, List<int[]> units, Technique technique, Deduction.Placement placement) {
+		int digit = placement.digit();
+		int[] unit = unitContaining(units, placement.cell());
+		
+		List<PatternCell> blocked = new ArrayList<>();
+		for (int cell : unit) {
+			if (cell == placement.cell() || !grid.isEmpty(cell)) {
+				continue;
 			}
 			
-			return new ExplainedDeduction(deduction, Explanation.builder(technique)
-				.focusDigit(digit)
-				.focusUnits(digit, List.of(Explanations.refOf(grid, unit, placement.cell())))
-				.implication(digit, blocked)
-				.conclusion(deduction)
-				.build());
-		});
+			blocked.add(PatternCell.of(cell, CellRole.CONTEXT, digit));
+			int blocker = Explanations.peerHolding(grid, cell, digit);
+			if (blocker >= 0) {
+				blocked.add(PatternCell.of(blocker, CellRole.BASE, digit));
+			}
+		}
+		
+		return new ExplainedDeduction(placement, Explanation.builder(technique)
+			.focusDigit(digit)
+			.focusUnits(digit, List.of(Explanations.refOf(grid, unit, placement.cell())))
+			.implication(digit, blocked)
+			.conclusion(placement)
+			.build());
 	}
 	
 	/**

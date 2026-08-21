@@ -1,5 +1,6 @@
 package net.luis.sudoku.solver;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -75,33 +76,82 @@ public final class FullHouse implements TechniqueStrategy {
 	 */
 	@Override
 	public Optional<ExplainedDeduction> findExplained(CandidateGrid grid) {
-		return this.find(grid).map(deduction -> {
-			Deduction.Placement placement = (Deduction.Placement) deduction;
-			int cell = placement.cell();
-			// The unit the argument was made in, found the same way the scan found it: the first of the cell's three
-			// units with exactly one empty cell. Rows are checked before columns before regions, matching allUnits().
-			UnitRef unit = null;
-			int[] unitCells = null;
-			for (UnitRef candidate : Explanations.unitsOf(grid, cell)) {
-				int[] cells = candidate.cells(grid);
-				int empty = 0;
-				for (int member : cells) {
-					if (grid.isEmpty(member)) {
-						empty++;
-					}
-				}
-				if (empty == 1) {
-					unit = candidate;
-					unitCells = cells;
-					break;
+		return this.find(grid).map(deduction -> this.explain(grid, deduction));
+	}
+	
+	/**
+	 * Returns every full house of the grid, not only the first: a position regularly has several units one cell
+	 * short at once, and each of them is this technique applied.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @return The placements, in {@link CandidateGrid#allUnits()} order, one per cell
+	 */
+	@Override
+	public List<ExplainedDeduction> findAllPlacements(CandidateGrid grid) {
+		List<ExplainedDeduction> found = new ArrayList<>();
+		boolean[] seen = new boolean[grid.cellCount()];
+		for (int[] unit : grid.allUnits()) {
+			int empty = 0;
+			int target = -1;
+			int used = 0;
+			for (int cell : unit) {
+				int value = grid.value(cell);
+				if (value == 0) {
+					empty++;
+					target = cell;
+				} else {
+					used |= 1 << value;
 				}
 			}
 			
-			return new ExplainedDeduction(deduction, Explanation.builder(Technique.FULL_HOUSE)
-				.focusUnits(0, List.of(unit))
-				.pattern(0, Explanations.filledOf(grid, unitCells))
-				.conclusion(deduction)
-				.build());
-		});
+			if (empty != 1 || seen[target]) {
+				continue;
+			}
+			
+			int missing = (((1 << grid.n()) - 1) << 1) & ~used;
+			if (Integer.bitCount(missing) == 1) {
+				// The same cell is the last empty of its row and of its region often enough; the argument is the same
+				// one either way, so it is made once, in the first unit the scan met it in.
+				seen[target] = true;
+				found.add(this.explain(grid, new Deduction.Placement(Technique.FULL_HOUSE, target, Integer.numberOfTrailingZeros(missing))));
+			}
+		}
+		return found;
+	}
+	
+	/**
+	 * Builds the argument for one full house: the unit that is one cell short, and every digit already in it.
+	 *
+	 * @param grid The working grid; never mutated
+	 * @param deduction The placement to explain
+	 * @return The placement and its explanation
+	 */
+	private ExplainedDeduction explain(CandidateGrid grid, Deduction deduction) {
+		Deduction.Placement placement = (Deduction.Placement) deduction;
+		int cell = placement.cell();
+		// The unit the argument was made in, found the same way the scan found it: the first of the cell's three
+		// units with exactly one empty cell. Rows are checked before columns before regions, matching allUnits().
+		UnitRef unit = null;
+		int[] unitCells = null;
+		for (UnitRef candidate : Explanations.unitsOf(grid, cell)) {
+			int[] cells = candidate.cells(grid);
+			int empty = 0;
+			for (int member : cells) {
+				if (grid.isEmpty(member)) {
+					empty++;
+				}
+			}
+			if (empty == 1) {
+				unit = candidate;
+				unitCells = cells;
+				break;
+			}
+		}
+		
+		return new ExplainedDeduction(deduction, Explanation.builder(Technique.FULL_HOUSE)
+			.focusUnits(0, List.of(unit))
+			.pattern(0, Explanations.filledOf(grid, unitCells))
+			.conclusion(deduction)
+			.build());
 	}
 }
