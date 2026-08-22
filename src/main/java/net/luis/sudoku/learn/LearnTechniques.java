@@ -3,6 +3,7 @@ package net.luis.sudoku.learn;
 import net.luis.sudoku.solver.Technique;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Which {@link Technique techniques} the learn area teaches, and therefore which ones puzzles are generated for,
@@ -33,12 +34,16 @@ import java.util.*;
 public final class LearnTechniques {
 	
 	private static final Set<Technique> EXCLUDED = EnumSet.of(Technique.LAW_OF_LEFTOVERS, Technique.MULTI_COLOURING);
+	// collect(toList()) rather than Stream.toList(): the latter is Java 16, and Android only gained it in API 34, so
+	// on every older device it is a NoSuchMethodError - thrown out of this initializer, which takes the whole learn
+	// area down with it. D8 backports the java.util factory methods used here, but not a default method on a library
+	// interface, which is what Stream.toList is.
 	private static final List<Technique> TAUGHT = List.copyOf(EnumSet.allOf(Technique.class).stream()
 		// Qualified: an unqualified MAX_LEVEL here is a forward reference to a constant declared further down, which
 		// javac rejects outright.
 		.filter(technique -> technique.level() <= LearnTechniques.MAX_LEVEL)
 		.filter(technique -> !EXCLUDED.contains(technique))
-		.toList());
+		.collect(Collectors.toList()));
 	/**
 	 * The hardest {@link Technique#level() level} the learn area covers.
 	 * <p>

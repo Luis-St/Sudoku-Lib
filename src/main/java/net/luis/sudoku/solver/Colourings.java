@@ -2,6 +2,7 @@ package net.luis.sudoku.solver;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * The two-colouring of a strong-link graph, shared by {@link SimpleColouring}, {@link MultiColouring} and the
@@ -33,7 +34,13 @@ final class Colourings {
 	 * @return One cluster per connected group of two or more candidates
 	 */
 	static List<Cluster> ofDigit(CandidateGrid grid, int digit) {
-		return build(grid, ConjugateLinks.of(grid, digit).stream().map(link -> new int[] { link[0], digit, link[1], digit }).toList());
+		// collect(toList()) rather than Stream.toList(): the latter is Java 16, and Android only gained it in API 34,
+		// so on every older device it is a NoSuchMethodError. D8 backports the java.util factory methods this library
+		// uses (List.of, List.copyOf, Optional.isEmpty), but it does not backport a default method on a library
+		// interface, which is what Stream.toList is.
+		return build(grid, ConjugateLinks.of(grid, digit).stream()
+			.map(link -> new int[] { link[0], digit, link[1], digit })
+			.collect(Collectors.toList()));
 	}
 	
 	/**
