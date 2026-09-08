@@ -41,6 +41,29 @@ public final class HintEngine {
 	}
 	
 	/**
+	 * Reports the next hint together with the pattern the player would have to see to make the move themselves.
+	 * <p>
+	 *     The same hint {@link #peek(Puzzle)} reports - same cell, same technique, same board state - with the
+	 *     technique's argument attached. Naming a technique is the smallest useful hint there is, and for anything past
+	 *     the singles it is not useful at all: the player who needs to be told that a W-Wing applies is precisely the
+	 *     player who cannot find it. Marking the cells the pattern is made of turns the hint into the lesson.
+	 * </p>
+	 * <p>
+	 *     Costlier than {@link #peek(Puzzle)}, since a strategy that records its pattern while it searches does that
+	 *     work here. Use {@code peek} where only the cell and the name are wanted.
+	 * </p>
+	 *
+	 * @param puzzle The current puzzle
+	 * @return The explained hint, or empty if the puzzle is solved or the solver cannot progress without guessing
+	 * @throws NullPointerException If the puzzle is null
+	 */
+	public static Optional<ExplainedHint> explain(Puzzle puzzle) {
+		Objects.requireNonNull(puzzle, "Puzzle must not be null");
+		return TechniqueSolver.nextExplainedStep(puzzle)
+			.map(explained -> new ExplainedHint(explained.step().cellIndex(), explained.step().technique(), explained.explanation()));
+	}
+	
+	/**
 	 * Consumes a hint, revealing the digit to place.
 	 * <p>
 	 *     The digit is recomputed from the current board rather than stored in the candidate, so the candidate never

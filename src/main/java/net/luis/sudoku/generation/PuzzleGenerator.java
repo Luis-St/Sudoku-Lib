@@ -1,6 +1,7 @@
 package net.luis.sudoku.generation;
 
 import net.luis.sudoku.difficulty.Difficulty;
+import net.luis.sudoku.difficulty.DifficultyBands;
 import net.luis.sudoku.difficulty.DifficultyRater;
 import net.luis.sudoku.grid.*;
 import net.luis.sudoku.key.KeyDerivation;
@@ -51,6 +52,7 @@ import java.util.Optional;
 public final class PuzzleGenerator {
 	
 	private static final DifficultyRater RATER = new DifficultyRater();
+	private static final DifficultyBands BANDS = DifficultyBands.defaults();
 	/**
 	 * The maximum number of fill-and-dig attempts a single {@link #generate(PuzzleKey)} call makes before returning
 	 * the closest-rated candidate it found.
@@ -66,8 +68,29 @@ public final class PuzzleGenerator {
 	 *     band from 20/32 to 25/32 and the overall hit rate from 83% to 93%, for roughly 40% on the worst case of the
 	 *     hardest bands.
 	 * </p>
+	 * <p>
+	 *     Raised again from 48 to 192 for issue 2.2.2/3, and this is the change that stops a player being handed a
+	 *     puzzle harder than the tier they picked. At 48 the bound was where the misses came from rather than a
+	 *     property of the bands: measured over the daily key sequence, tier 9 landed on 54 days of 60 and missed
+	 *     <i>high</i> on the other six (four at band 10, two at band 11), never once low, because an over-shooting
+	 *     candidate wins {@link #chooseFallback}'s comparison whenever it is the nearer one. At 192 every one of those
+	 *     days becomes an exact hit, and a full bench at 9x9 classic goes from 340 of 360 to <b>360 of 360</b>, every
+	 *     band 24 of 24 - band 15 alone was 16 of 24. The bands were reachable all along.
+	 * </p>
+	 * <p>
+	 *     The average costs almost nothing, because only a search that is <i>failing</i> ever reaches past the old
+	 *     bound: 27 to 30 ms at band 9, 139 to 163 ms at band 15. The worst case is what grows, roughly doubling, and
+	 *     it is paid by the server's pool warm-up rather than by a player waiting for a board.
+	 * </p>
+	 * <p>
+	 *     It is the bound at <b>every</b> size, 16x16 included, and that was measured rather than assumed: cutting
+	 *     16x16 back to the old 48 to save its far more expensive attempts dropped it from 60 of 60 to 51 of 60 and
+	 *     brought the over-shoots straight back - a band-9 request rated 11, a band-8 rated 10 - for about a third
+	 *     off the time. Accuracy is what the raise is for, so 16x16 pays for it; what it does not pay for is the
+	 *     work ceiling, which is the part that costs there (see {@link #ceilingBudgetFor(GridSize)}).
+	 * </p>
 	 */
-	public static final int MAX_ATTEMPTS = 48;
+	public static final int MAX_ATTEMPTS = 192;
 	
 	/**
 	 * How many hole budgets a single attempt tries on its own solution before giving up on it.
@@ -79,6 +102,58 @@ public final class PuzzleGenerator {
 	 * </p>
 	 */
 	public static final int MAX_BUDGET_STEPS = 9;
+	
+	/**
+	 * How many further attempts the work ceiling is worth once a puzzle in the target band has been found.
+	 * <p>
+	 *     The ceiling is a <b>preference, not a requirement</b>, and this is what keeps it one. Held for the whole of
+	 *     {@link #MAX_ATTEMPTS} it turned a search that used to finish in two or three attempts into one that ran the
+	 *     bound out. 9x9 chaos is where that showed: a jigsaw layout is grown once and every attempt re-digs
+	 *     <i>that</i> solution, so the range of puzzles one seed can reach is narrow, and a seed whose layout has no
+	 *     light band-15 puzzle in it will not find one however long it looks. Measured, the average generation of a
+	 *     band-15 chaos puzzle went from 229 ms to 1511 ms, and that cost is paid on a phone by a player waiting for
+	 *     an offline board.
+	 * </p>
+	 * <p>
+	 *     So the ceiling gets a small budget, counted from the first candidate that lands in the band rather than
+	 *     from the start of the search: the attempts spent <i>finding</i> the band are not attempts spent on weight.
+	 *     Inside the budget only a puzzle light enough for its band is accepted; at the end of it the lightest
+	 *     candidate seen is handed over. The band is never given up on - the attempts past this budget are exactly the
+	 *     ones that made every band land - only the weight is.
+	 * </p>
+	 */
+	private static final int CEILING_BUDGET = 8;
+	
+	/**
+	 * How many fill-and-dig attempts a search at the given size may make.
+	/**
+	 * How many attempts the work ceiling is worth at the given size.
+	 * <p>
+	 *     The ceiling is a comfort preference, so what it may spend is a fraction of a second of extra searching -
+	 *     and at 16x16 one further attempt is measured in seconds, not in milliseconds, because it fills a solution
+	 *     whose cost is heavy-tailed with no ceiling at all ({@link SolutionFiller} bounds it into restarts rather
+	 *     than into a hang). It buys none there, and the first candidate in the band is taken exactly as it always
+	 *     was. The ceilings are calibrated at 9x9 and merely side-scaled above it in any case, so 16x16 is also
+	 *     where they are least entitled to spend anything.
+	 * </p>
+	 *
+	 * @param size The grid size
+	 * @return The ceiling budget for that size, {@code 0} where the ceiling is not worth an attempt at all
+	 */
+	private static int ceilingBudgetFor(GridSize size) {
+		return size.n() == 16 ? 0 : CEILING_BUDGET;
+	}
+	
+	/**
+	 * How many bands of slack the easier side of a missed target is given when the two are compared.
+	 * <p>
+	 *     A miss is a choice between a puzzle below the requested band and one above it, and the two are not equally
+	 *     good answers: being handed something harder than was asked for is the failure a player notices, while
+	 *     something easier is merely a quiet one. One band of bias is enough to settle every tie and every near-tie
+	 *     in favour of the easier puzzle without ever reaching for a wildly easier one to avoid a marginally harder.
+	 * </p>
+	 */
+	private static final int OVERSHOOT_PENALTY = 1;
 	
 	private PuzzleGenerator() {}
 	
@@ -149,8 +224,17 @@ public final class PuzzleGenerator {
 		}
 		
 		int ceiling = Math.min(maxHoles, key.size().cellCount());
+		int workCeiling = BANDS.workCeiling(key.size(), key.variant(), target);
+		int ceilingBudget = ceilingBudgetFor(key.size());
 		GeneratedPuzzle closestBelow = null;
 		int closestBelowDistance = Integer.MAX_VALUE;
+		// A candidate in the target band that carries more work than the band promises. Kept because it is still the
+		// band that was asked for, which every off-band candidate is not; the lightest one seen wins, since the whole
+		// reason it is being turned away is that it is heavy.
+		GeneratedPuzzle overworked = null;
+		int overworkedScore = Integer.MAX_VALUE;
+		// The attempt the band was first reached on, which is where CEILING_BUDGET starts counting.
+		int bandFoundOn = -1;
 		// Held as its parts rather than as a GeneratedPuzzle, because the one thing a GeneratedPuzzle must carry is
 		// the band it rated and that is exactly what this candidate does not know yet: rateUpTo stopped at the target
 		// and reported only "harder than that". chooseFallback re-rates it if it ends up being the one returned.
@@ -188,7 +272,7 @@ public final class PuzzleGenerator {
 				
 				// Rating only up to the target is enough to steer the search and never constructs the strategies
 				// above it; an empty result means "harder than the target" and nothing more.
-				Optional<Difficulty> rated = RATER.rateUpTo(puzzle, target);
+				Optional<DifficultyRater.Rating> rated = RATER.rateUpTo(puzzle, target);
 				if (rated.isEmpty()) {
 					if (holes < shallowestAboveHoles) {
 						shallowestAboveHoles = holes;
@@ -199,9 +283,32 @@ public final class PuzzleGenerator {
 					continue;
 				}
 				
-				Difficulty band = rated.orElseThrow();
+				Difficulty band = rated.orElseThrow().band();
 				if (band == target) {
-					return new GeneratedPuzzle(key, puzzle, solution, band);
+					// Issue 2.2.2/3: the right band is no longer the whole test. A band names the hardest technique
+					// a puzzle forces and says nothing about how much of that work there is, and measured, one band
+					// spans a three- to six-fold range of it - which is what made one day's tier-12 daily six times
+					// the grind of the next day's under the same tier number. A candidate over the ceiling is
+					// over-worked rather than mis-rated, so it steers the search exactly as an over-shoot does, and
+					// it is kept: it is the tier that was asked for, which no off-band candidate is.
+					int score = rated.orElseThrow().pathScore();
+					if (score < overworkedScore) {
+						overworkedScore = score;
+						overworked = new GeneratedPuzzle(key, puzzle, solution, band);
+					}
+					if (score <= workCeiling) {
+						return new GeneratedPuzzle(key, puzzle, solution, band);
+					}
+					if (bandFoundOn < 0) {
+						bandFoundOn = attempt;
+					}
+					// Past its budget the ceiling stops being worth more attempts, and the lightest candidate seen so
+					// far - which is this one or an earlier one - is the answer (see CEILING_BUDGET).
+					if (attempt - bandFoundOn >= ceilingBudget) {
+						return overworked;
+					}
+					most = holes - 1;
+					continue;
 				}
 				
 				int distance = target.index() - band.index();
@@ -213,7 +320,9 @@ public final class PuzzleGenerator {
 			}
 		}
 		
-		GeneratedPuzzle fallback = chooseFallback(key, closestBelow, closestBelowDistance, shallowestAbove, shallowestAboveSolution, target);
+		GeneratedPuzzle fallback = overworked != null
+			? overworked
+			: chooseFallback(key, closestBelow, closestBelowDistance, shallowestAbove, shallowestAboveSolution, target);
 		if (fallback == null) {
 			throw new IllegalStateException("Failed to generate any puzzle for " + key + " within " + MAX_ATTEMPTS + " attempts");
 		}
@@ -236,6 +345,13 @@ public final class PuzzleGenerator {
 	 *     reached when the over-shoot both wins the comparison and lies more than two bands above the target, and a
 	 *     puzzle handed out under a band nobody measured is worse than the rating it costs.
 	 * </p>
+	 * <p>
+	 *     The two sides are not weighed evenly, and must not be (issue 2.2.2/3): the over-shoot carries
+	 *     {@link #OVERSHOOT_PENALTY}, so an equally distant - or one band nearer - puzzle above the target loses to
+	 *     the one below it. That is the rule {@link net.luis.sudoku.difficulty.DifficultyBands#nearestSupported}
+	 *     already states for the same question one level up, that a player asking for a band they cannot have is
+	 *     better served by an easier puzzle than a harder one, applied here where it was not.
+	 * </p>
 	 */
 	private static GeneratedPuzzle chooseFallback(
 		PuzzleKey key, GeneratedPuzzle closestBelow, int closestBelowDistance, Puzzle shallowestAbove, int[] shallowestAboveSolution, Difficulty target
@@ -245,12 +361,12 @@ public final class PuzzleGenerator {
 		}
 		
 		int probe = Math.min(target.index() + 2, Difficulty.LISA.index());
-		Optional<Difficulty> probed = RATER.rateUpTo(shallowestAbove, Difficulty.ofIndex(probe));
-		int aboveDistance = probed.map(band -> band.index() - target.index()).orElse(3);
+		Optional<DifficultyRater.Rating> probed = RATER.rateUpTo(shallowestAbove, Difficulty.ofIndex(probe));
+		int aboveDistance = probed.map(rating -> rating.band().index() - target.index()).orElse(3) + OVERSHOOT_PENALTY;
 		if (aboveDistance >= closestBelowDistance) {
 			return closestBelow;
 		}
-		return new GeneratedPuzzle(key, shallowestAbove, shallowestAboveSolution, probed.orElseGet(() -> RATER.rate(shallowestAbove)));
+		return new GeneratedPuzzle(key, shallowestAbove, shallowestAboveSolution, probed.map(DifficultyRater.Rating::band).orElseGet(() -> RATER.rate(shallowestAbove)));
 	}
 	
 	/**

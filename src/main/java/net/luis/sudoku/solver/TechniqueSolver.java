@@ -178,6 +178,54 @@ public final class TechniqueSolver {
 	}
 	
 	/**
+	 * Returns the next placement together with the argument for the technique that unlocks it.
+	 * <p>
+	 *     The explained twin of {@link #nextStep(Puzzle)}, and it makes the same walk: apply eliminations until a
+	 *     placement turns up, and report the hardest technique that was needed on the way. What it adds is the
+	 *     {@link Explanation} of <i>that</i> deduction - the pattern a player has to see in order to make the move
+	 *     themselves rather than be handed it.
+	 * </p>
+	 * <p>
+	 *     The explanation is of the hardest deduction rather than of the placement, and those are usually different
+	 *     deductions. A placement unlocked by an X-Wing is a naked single by the time it is placed; explaining the
+	 *     single would show the player the one part of the position they could already see.
+	 * </p>
+	 * <p>
+	 *     Costlier than {@link #nextStep(Puzzle)}, because a strategy that records its pattern while it searches does
+	 *     that work here and not there. It is paid once, when a player asks for a hint.
+	 * </p>
+	 *
+	 * @param puzzle The puzzle to find the next step for
+	 * @return The next placement with its argument, or empty if the puzzle is already solved or the solver gets stuck
+	 * @throws NullPointerException If the puzzle is null
+	 */
+	public static Optional<ExplainedSolveStep> nextExplainedStep(Puzzle puzzle) {
+		Objects.requireNonNull(puzzle, "Puzzle must not be null");
+		CandidateGrid grid = new CandidateGrid(puzzle);
+		Technique hardest = null;
+		Explanation hardestExplanation = null;
+		while (!grid.isComplete()) {
+			ExplainedDeduction explained = nextExplainedDeduction(grid);
+			if (explained == null) {
+				return Optional.empty();
+			}
+			
+			Deduction deduction = explained.deduction();
+			Technique technique = deduction.technique();
+			if (hardest == null || technique.rank() > hardest.rank()) {
+				hardest = technique;
+				hardestExplanation = explained.explanation();
+			}
+			if (deduction instanceof Deduction.Placement placement) {
+				return Optional.of(new ExplainedSolveStep(new SolveStep(placement.cell(), placement.digit(), hardest), hardestExplanation));
+			}
+			
+			deduction.applyTo(grid);
+		}
+		return Optional.empty();
+	}
+	
+	/**
 	 * Returns the deduction the driver would make next on the given working grid, without applying it.
 	 * <p>
 	 *     This is {@link #solve(Puzzle)}'s inner step, exposed so a caller can drive the solve itself while watching
@@ -222,6 +270,24 @@ public final class TechniqueSolver {
 		}
 		
 		return Optional.ofNullable(nextDeduction(grid, maxLevel));
+	}
+	
+	/**
+	 * The explained twin of {@link #nextDeduction(CandidateGrid, int)}, uncapped.
+	 * <p>
+	 *     Scans in the same escalating order and returns the same deduction, which the
+	 *     {@link TechniqueStrategy#findExplained(CandidateGrid)} contract guarantees: the teaching path and the
+	 *     solving path have to agree, or a hint would show a pattern the solver never used.
+	 * </p>
+	 */
+	private static ExplainedDeduction nextExplainedDeduction(CandidateGrid grid) {
+		for (TechniqueStrategy strategy : STRATEGIES) {
+			Optional<ExplainedDeduction> explained = strategy.findExplained(grid);
+			if (explained.isPresent()) {
+				return explained.orElseThrow();
+			}
+		}
+		return null;
 	}
 	
 	private static Deduction nextDeduction(CandidateGrid grid, int maxLevel) {

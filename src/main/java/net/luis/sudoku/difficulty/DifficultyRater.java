@@ -65,13 +65,19 @@ public record DifficultyRater(DifficultyBands bands) {
 	 *     scanned at all. An empty result means "harder than {@code maxBand}" with no further detail, which is
 	 *     exactly what a bisection over the hole budget needs in order to dig less.
 	 * </p>
+	 * <p>
+	 *     The {@link Rating#pathScore() path score} comes back with the band because the band alone no longer tells
+	 *     the search what it needs: two puzzles in one band can differ several-fold in how much work they take, and
+	 *     {@link DifficultyBands#workCeiling} is what the generator holds them to. Solving the puzzle is what produces
+	 *     the score, so returning it costs nothing here and saves a second solve there.
+	 * </p>
 	 *
 	 * @param puzzle The puzzle to rate
 	 * @param maxBand The hardest band to rate up to
-	 * @return The band, or empty if the puzzle is harder than {@code maxBand}
+	 * @return The band and the path score it was rated from, or empty if the puzzle is harder than {@code maxBand}
 	 * @throws NullPointerException If the puzzle or the band is null
 	 */
-	public Optional<Difficulty> rateUpTo(Puzzle puzzle, Difficulty maxBand) {
+	public Optional<Rating> rateUpTo(Puzzle puzzle, Difficulty maxBand) {
 		Objects.requireNonNull(puzzle, "Puzzle must not be null");
 		Objects.requireNonNull(maxBand, "Maximum band must not be null");
 		
@@ -83,7 +89,21 @@ public record DifficultyRater(DifficultyBands bands) {
 		if (report.exceededCap() || report.stuck()) {
 			return Optional.empty();
 		}
-		return Optional.of(this.bands.classify(puzzle.size(), puzzle.variant(), report));
+		return Optional.of(new Rating(this.bands.classify(puzzle.size(), puzzle.variant(), report), report.pathScore()));
+	}
+	
+	/**
+	 * A capped rating: the band a puzzle fell in, and the path score that band was derived from.
+	 *
+	 * @param band The difficulty band
+	 * @param pathScore The {@link TechniqueReport#pathScore() path score}, which measures how much non-routine work
+	 *   the solve took rather than how hard its hardest step was
+	 */
+	public record Rating(Difficulty band, int pathScore) {
+		
+		public Rating {
+			Objects.requireNonNull(band, "Band must not be null");
+		}
 	}
 	
 	/**

@@ -75,6 +75,44 @@ public final class DifficultyBands {
 		0, Integer.MAX_VALUE, Integer.MAX_VALUE, 1, 50, 85, 150, 215, 310, 360, 580, 1000, 1150, 1800, 3200
 	};
 	
+	/**
+	 * The most path score a puzzle <i>offered</i> as each band may carry, indexed by {@code band index - 1}.
+	 * <p>
+	 *     A band says which technique a puzzle forces. It says nothing at all about how <b>much</b> of that work there
+	 *     is, and measured over 40 seeds a band at 9x9 classic the answer ranges three- to six-fold inside one band:
+	 *     band 12 ran from a path score of 205 to 1146, band 15 from 963 to 5404. Both ends are honestly rated - the
+	 *     score only promotes, so the grindy end is still band 12 until it reaches band 13's threshold - and to a
+	 *     player they are two different puzzles on two consecutive days under one tier number.
+	 * </p>
+	 * <p>
+	 *     These are the 75th percentile of the score distribution the generator actually returned per band, the same
+	 *     measurement {@link #SCORE_THRESHOLDS} was calibrated from, so a quarter of what the search would otherwise
+	 *     hand over is turned away as more work than the tier promises. It cuts the worst day rather than the average
+	 *     one: band 15's heaviest puzzle drops by 46%, band 11's by 30%.
+	 * </p>
+	 * <p>
+	 *     <b>Keyed by variant</b>, for the same reason {@link #supported} is: a jigsaw grid is not a classic grid with
+	 *     different lines on it. Measured at 24 seeds a band, 9x9 chaos carries about 1.15 times the work of classic
+	 *     at the same band and 1.6 times at band 15, so the classic column used as a shared ceiling landed on chaos's
+	 *     own median - turning away half of what the search found for a five per cent gain, and tripling what it cost
+	 *     to generate a board offline. Two columns are what one honest ceiling per variant costs.
+	 * </p>
+	 * <p>
+	 *     <b>This is a rule about what is offered, not about what a puzzle is.</b> {@link #classify} is untouched, so a
+	 *     grid that arrives from a share code or a saved game still rates exactly where its work puts it; only
+	 *     {@link net.luis.sudoku.generation.PuzzleGenerator}'s search consults this, and only to keep looking. Bands 1
+	 *     to 3 have no ceiling because they have no non-routine work to measure - every puzzle there scores 0.
+	 * </p>
+	 */
+	private static final int[] CLASSIC_WORK_CEILINGS = {
+		Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, 48, 73, 121, 166, 246, 322, 451, 610, 935, 1508, 2303, 2918
+	};
+	
+	/** The same measurement on a jigsaw grid - see {@link #CLASSIC_WORK_CEILINGS}, which explains both. */
+	private static final int[] CHAOS_WORK_CEILINGS = {
+		Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, 48, 80, 128, 193, 299, 350, 480, 760, 1088, 1522, 2622, 4766
+	};
+	
 	private final Map<GridSize, Map<Variant, Set<Difficulty>>> supported;
 	
 	private DifficultyBands(Map<GridSize, Map<Variant, Set<Difficulty>>> supported) {
@@ -169,6 +207,32 @@ public final class DifficultyBands {
 			}
 		}
 		return level;
+	}
+	
+	/**
+	 * Returns the most path score a puzzle offered as {@code band} may carry at the given size.
+	 * <p>
+	 *     Scaled by grid side exactly as {@link #SCORE_THRESHOLDS} is, and for the same reason: the score is a sum over
+	 *     the solve path, so a bigger grid has more steps to sum and an absolute 9x9 number would be a far tighter
+	 *     ceiling there than here.
+	 * </p>
+	 *
+	 * @param size The grid size
+	 * @param variant The region layout variant
+	 * @param band The band the puzzle would be offered as
+	 * @return The ceiling, or {@link Integer#MAX_VALUE} for a band that has none
+	 * @throws NullPointerException If the size, the variant or the band is null
+	 */
+	public int workCeiling(GridSize size, Variant variant, Difficulty band) {
+		Objects.requireNonNull(size, "Grid size must not be null");
+		Objects.requireNonNull(variant, "Variant must not be null");
+		Objects.requireNonNull(band, "Band must not be null");
+		
+		int ceiling = (variant == Variant.CHAOS ? CHAOS_WORK_CEILINGS : CLASSIC_WORK_CEILINGS)[band.index() - 1];
+		if (ceiling == Integer.MAX_VALUE) {
+			return ceiling;
+		}
+		return Math.max(1, (int) ((long) ceiling * size.n() / REFERENCE_SIDE));
 	}
 	
 	/**

@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Golden-fixture regression tests: a handful of {@code (genVersion=3, size, variant, difficulty, seed)} keys pinned to
+ * Golden-fixture regression tests: a handful of {@code (genVersion=4, size, variant, difficulty, seed)} keys pinned to
  * their exact generated grids.
  * <p>
  *     These freeze the generator's output so that any future change to the generator, the region builder, the
@@ -31,7 +31,7 @@ class GenerationGoldenTest {
 	}
 	
 	private static void assertGolden(GridSize size, Variant variant, Difficulty difficulty, long seed, String givens, String solution) {
-		assertEquals(3, GenVersion.CURRENT, "The golden fixtures were pinned for genVersion 3");
+		assertEquals(4, GenVersion.CURRENT, "The golden fixtures were pinned for genVersion 4");
 		GeneratedPuzzle generated = PuzzleGenerator.generate(PuzzleKey.of(size, variant, difficulty, seed));
 		
 		assertAll(size + "/" + variant + "/" + difficulty + "/seed=" + seed,
@@ -43,28 +43,28 @@ class GenerationGoldenTest {
 	@Test
 	void generate_nineClassicThree_matchesGolden() {
 		assertGolden(GridSize.NINE, Variant.CLASSIC, Difficulty.THREE, 42L,
-			"071000069000600000050908034609000008080007000700000016308020650040036090000000800",
-			"871543269934672581256918734619254378483167925725389416398421657547836192162795843");
+			"000006000000050300060000054740280001509040800002031000000900000420060790037000000",
+			"375426189294158376168793254743289561519647832682531947856972413421365798937814625");
 	}
 	
 	@Test
 	void generate_fourClassicOne_matchesGolden() {
 		assertGolden(GridSize.FOUR, Variant.CLASSIC, Difficulty.ONE, 7L,
-			"4012124021303020",
-			"4312124321343421");
+			"4103204104100034",
+			"4123234134121234");
 	}
 	
 	@Test
 	void generate_sixChaosTwo_matchesGolden() {
 		assertGolden(GridSize.SIX, Variant.CHAOS, Difficulty.TWO, 99L,
-			"000003030020241000006000023064400000",
-			"512643634125241356356412123564465231");
+			"000204100000300000000405000002000041",
+			"536214124653345126612435451362263541");
 	}
 	
 	@Test
 	void generate_nineChaosThree_matchesGolden() {
 		assertGolden(GridSize.NINE, Variant.CHAOS, Difficulty.THREE, 1L,
-			"020000000750203190010000008360805002000430009040106000030901060000000304600300920",
-			"823619547754283196916754238367895412281437659549126783432971865198562374675348921");
+			"000000407000300982800090003009002030000084100104570890091740258278005040050009300",
+			"963258417745361982812497563589612734637984125124573896391746258278135649456829371");
 	}
 }
