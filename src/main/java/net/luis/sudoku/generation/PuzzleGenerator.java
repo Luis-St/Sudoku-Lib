@@ -69,7 +69,7 @@ public final class PuzzleGenerator {
 	 *     hardest bands.
 	 * </p>
 	 * <p>
-	 *     Raised again from 48 to 192 for issue 2.2.2/3, and this is the change that stops a player being handed a
+	 *     Raised again from 48 to 192 for issue 2.3.0/3, and this is the change that stops a player being handed a
 	 *     puzzle harder than the tier they picked. At 48 the bound was where the misses came from rather than a
 	 *     property of the bands: measured over the daily key sequence, tier 9 landed on 54 days of 60 and missed
 	 *     <i>high</i> on the other six (four at band 10, two at band 11), never once low, because an over-shooting
@@ -299,7 +299,7 @@ public final class PuzzleGenerator {
 				
 				Difficulty band = rated.orElseThrow().band();
 				if (band == target) {
-					// Issue 2.2.2/3: the right band is no longer the whole test. A band names the hardest technique
+					// Issue 2.3.0/3: the right band is no longer the whole test. A band names the hardest technique
 					// a puzzle forces and says nothing about how much of that work there is or where on the path it
 					// sits: one band spans a several-fold range of work, and a puzzle can be singles for half the
 					// board around a single hard step. A candidate that breaks an offer rule steers the search and is
@@ -365,7 +365,7 @@ public final class PuzzleGenerator {
 	 *     puzzle handed out under a band nobody measured is worse than the rating it costs.
 	 * </p>
 	 * <p>
-	 *     The two sides are not weighed evenly, and must not be (issue 2.2.2/3): the over-shoot carries
+	 *     The two sides are not weighed evenly, and must not be (issue 2.3.0/3): the over-shoot carries
 	 *     {@link #OVERSHOOT_PENALTY}, so an equally distant - or one band nearer - puzzle above the target loses to
 	 *     the one below it. That is the rule {@link net.luis.sudoku.difficulty.DifficultyBands#nearestSupported}
 	 *     already states for the same question one level up, that a player asking for a band they cannot have is
