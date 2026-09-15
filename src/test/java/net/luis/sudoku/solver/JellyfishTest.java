@@ -14,14 +14,14 @@ import static org.junit.jupiter.api.Assertions.*;
 class JellyfishTest {
 	
 	/**
-	 * A generated NINE CLASSIC puzzle (band FOURTEEN, seed 17) whose solve applies the technique 1 time(s).
+	 * A generated TWELVE CLASSIC puzzle (band ELEVEN, seed 40) whose solve applies the technique 1 time(s).
 	 * <p>
 	 *     Pinned as a key rather than as givens, so that the fixture is re-derived from the generator that
 	 *     is actually shipping rather than frozen at whatever it produced once.
 	 * </p>
 	 */
 	private static Puzzle puzzle() {
-		return StrategyFixtures.generated(GridSize.NINE, Variant.CLASSIC, Difficulty.FOURTEEN, 17L);
+		return StrategyFixtures.generated(GridSize.TWELVE, Variant.CLASSIC, Difficulty.ELEVEN, 40L);
 	}
 	
 	@Test

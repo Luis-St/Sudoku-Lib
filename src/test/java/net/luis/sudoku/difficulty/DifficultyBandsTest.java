@@ -22,6 +22,19 @@ class DifficultyBandsTest {
 		4, 3, 2, 1
 	};
 	
+	// A uniquely solvable 9x9 puzzle the solver finishes with singles alone, so its whole solve is opening.
+	private static final int[] SINGLES_ONLY_NINE = {
+		9, 0, 8, 7, 0, 2, 0, 0, 0,
+		7, 0, 0, 0, 0, 6, 3, 0, 0,
+		0, 0, 0, 4, 0, 0, 0, 5, 9,
+		4, 0, 0, 2, 0, 8, 0, 0, 0,
+		0, 0, 3, 0, 0, 0, 6, 0, 2,
+		0, 0, 7, 0, 0, 9, 0, 0, 0,
+		0, 0, 2, 3, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 1, 0, 5,
+		0, 0, 0, 8, 0, 7, 0, 0, 0
+	};
+	
 	private static TechniqueReport reportOf(int[] givens, GridSize size) {
 		return TechniqueSolver.solve(Puzzle.classicOfGivens(size, givens));
 	}
@@ -216,5 +229,71 @@ class DifficultyBandsTest {
 		
 		assertTrue(capped.exceededCap());
 		assertThrows(IllegalArgumentException.class, () -> BANDS.classify(GridSize.NINE, Variant.CLASSIC, capped));
+	}
+	
+	@Test
+	void workFloor_routineBands_isZero() {
+		assertAll(
+			() -> assertEquals(0, BANDS.workFloor(GridSize.NINE, Variant.CLASSIC, Difficulty.ONE)),
+			() -> assertEquals(0, BANDS.workFloor(GridSize.NINE, Variant.CHAOS, Difficulty.THREE))
+		);
+	}
+	
+	@Test
+	void workFloor_everyNonRoutineBand_isNotAboveTheCeiling() {
+		for (Variant variant : Variant.values()) {
+			for (int index = 4; index <= Difficulty.LISA.index(); index++) {
+				Difficulty band = Difficulty.ofIndex(index);
+				assertTrue(BANDS.workFloor(GridSize.NINE, variant, band) <= BANDS.workCeiling(GridSize.NINE, variant, band), variant + " band " + index);
+			}
+		}
+	}
+	
+	@Test
+	void workFloor_largerGrid_scalesBySide() {
+		int nine = BANDS.workFloor(GridSize.NINE, Variant.CLASSIC, Difficulty.ofIndex(13));
+		
+		assertEquals(nine * 12 / 9, BANDS.workFloor(GridSize.TWELVE, Variant.CLASSIC, Difficulty.ofIndex(13)));
+	}
+	
+	@Test
+	void assessOffer_nullReport_throwsNullPointerException() {
+		assertThrows(NullPointerException.class, () -> BANDS.assessOffer(GridSize.NINE, Variant.CLASSIC, Difficulty.ONE, 50, null));
+	}
+	
+	@Test
+	void assessOffer_singlesOnlyAsARoutineBand_isAcceptable() {
+		TechniqueReport report = reportOf(SINGLES_ONLY_NINE, GridSize.NINE);
+		DifficultyBands.OfferAssessment offer = BANDS.assessOffer(GridSize.NINE, Variant.CLASSIC, Difficulty.THREE, 57, report);
+		
+		assertAll(
+			() -> assertTrue(offer.acceptable()),
+			() -> assertEquals(0, offer.penalty())
+		);
+	}
+	
+	@Test
+	void assessOffer_singlesOnlyAsBandFive_isTooLightWithALongOpening() {
+		TechniqueReport report = reportOf(SINGLES_ONLY_NINE, GridSize.NINE);
+		DifficultyBands.OfferAssessment offer = BANDS.assessOffer(GridSize.NINE, Variant.CLASSIC, Difficulty.FIVE, 57, report);
+		
+		assertAll(
+			() -> assertFalse(offer.acceptable()),
+			() -> assertTrue(offer.tooLight()),
+			() -> assertFalse(offer.tooHeavy()),
+			() -> assertEquals(80, offer.openingExcessPercent()),
+			() -> assertEquals(0, offer.hardStepShortfall(), "Band 5 is below the hard step rule"),
+			() -> assertTrue(offer.penalty() > 0)
+		);
+	}
+	
+	@Test
+	void assessOffer_hardStepRule_appliesToClassicGridsOnly() {
+		TechniqueReport report = reportOf(SINGLES_ONLY_NINE, GridSize.NINE);
+		
+		assertAll(
+			() -> assertEquals(2, BANDS.assessOffer(GridSize.NINE, Variant.CLASSIC, Difficulty.SEVEN, 57, report).hardStepShortfall()),
+			() -> assertEquals(0, BANDS.assessOffer(GridSize.NINE, Variant.CHAOS, Difficulty.SEVEN, 57, report).hardStepShortfall())
+		);
 	}
 }

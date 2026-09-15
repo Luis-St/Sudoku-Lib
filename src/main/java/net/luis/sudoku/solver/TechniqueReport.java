@@ -23,7 +23,8 @@ public final class TechniqueReport {
 	private final boolean exceededCap;
 	private final int[] solution;
 	private final EnumMap<Technique, Integer> usage;
-	
+	private final int openingPlacements;
+
 	/**
 	 * Constructs a report. The usage map is copied into an {@link EnumMap} and the solution is defensively copied.
 	 *
@@ -32,11 +33,13 @@ public final class TechniqueReport {
 	 * @param exceededCap Whether the solver ran out only because a level cap hid the harder techniques from it
 	 * @param solution The final grid values, solved or furthest-progressed
 	 * @param usage How many times each technique fired; techniques that never fired may be absent
+	 * @param openingPlacements How many cells were placed before the first non-routine deduction
 	 */
-	TechniqueReport(boolean solved, boolean stuck, boolean exceededCap, int[] solution, Map<Technique, Integer> usage) {
+	TechniqueReport(boolean solved, boolean stuck, boolean exceededCap, int[] solution, Map<Technique, Integer> usage, int openingPlacements) {
 		this.solved = solved;
 		this.stuck = stuck;
 		this.exceededCap = exceededCap;
+		this.openingPlacements = openingPlacements;
 		this.solution = solution.clone();
 		this.usage = new EnumMap<>(Technique.class);
 		
@@ -144,6 +147,37 @@ public final class TechniqueReport {
 		return score;
 	}
 	
+	/**
+	 * Returns how many deductions of the given level or harder the solver applied.
+	 *
+	 * @param level The lowest level to count
+	 * @return The summed usage count of every technique at or above that level
+	 */
+	public int countAtOrAbove(int level) {
+		int total = 0;
+		for (Map.Entry<Technique, Integer> entry : this.usage.entrySet()) {
+			if (entry.getKey().level() >= level) {
+				total += entry.getValue();
+			}
+		}
+		return total;
+	}
+
+	/**
+	 * Returns how many cells the solve placed before its first non-routine deduction.
+	 * <p>
+	 *     This is the singles-only opening of a puzzle: the stretch a player fills in without ever needing a technique
+	 *     above {@link Technique#ROUTINE_LEVEL}. The band says nothing about it, and a long opening is what makes a
+	 *     hard puzzle feel easy for most of its cells.
+	 * </p>
+	 *
+	 * @return The number of routine placements before the first non-routine deduction, or every placement of a solve
+	 *   that never needed one
+	 */
+	public int openingPlacements() {
+		return this.openingPlacements;
+	}
+
 	/**
 	 * Returns the total number of deductions the solver applied, the sum of every technique's usage count.
 	 *

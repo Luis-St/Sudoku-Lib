@@ -87,7 +87,7 @@ public final class PuzzleGenerator {
 	 *     16x16 back to the old 48 to save its far more expensive attempts dropped it from 60 of 60 to 51 of 60 and
 	 *     brought the over-shoots straight back - a band-9 request rated 11, a band-8 rated 10 - for about a third
 	 *     off the time. Accuracy is what the raise is for, so 16x16 pays for it; what it does not pay for is the
-	 *     work ceiling, which is the part that costs there (see {@link #ceilingBudgetFor(GridSize)}).
+	 *     offer rules, which are the part that costs there (see {@link #offerBudgetFor(GridSize, Variant)}).
 	 * </p>
 	 */
 	public static final int MAX_ATTEMPTS = 192;
@@ -104,10 +104,11 @@ public final class PuzzleGenerator {
 	public static final int MAX_BUDGET_STEPS = 9;
 	
 	/**
-	 * How many further attempts the work ceiling is worth once a puzzle in the target band has been found.
+	 * How many further attempts the offer rules are worth once a puzzle in the target band has been found.
 	 * <p>
-	 *     The ceiling is a <b>preference, not a requirement</b>, and this is what keeps it one. Held for the whole of
-	 *     {@link #MAX_ATTEMPTS} it turned a search that used to finish in two or three attempts into one that ran the
+	 *     The rules of {@link DifficultyBands#assessOffer} - the work floor and ceiling and the bottleneck - are a
+	 *     <b>preference, not a requirement</b>, and this is what keeps them one. It was introduced for the ceiling
+	 *     alone: held for the whole of {@link #MAX_ATTEMPTS} it turned a search that used to finish in two or three attempts into one that ran the
 	 *     bound out. 9x9 chaos is where that showed: a jigsaw layout is grown once and every attempt re-digs
 	 *     <i>that</i> solution, so the range of puzzles one seed can reach is narrow, and a seed whose layout has no
 	 *     light band-15 puzzle in it will not find one however long it looks. Measured, the average generation of a
@@ -115,21 +116,32 @@ public final class PuzzleGenerator {
 	 *     an offline board.
 	 * </p>
 	 * <p>
-	 *     So the ceiling gets a small budget, counted from the first candidate that lands in the band rather than
-	 *     from the start of the search: the attempts spent <i>finding</i> the band are not attempts spent on weight.
-	 *     Inside the budget only a puzzle light enough for its band is accepted; at the end of it the lightest
-	 *     candidate seen is handed over. The band is never given up on - the attempts past this budget are exactly the
-	 *     ones that made every band land - only the weight is.
+	 *     So the rules get a small budget, counted from the first candidate that lands in the band rather than from
+	 *     the start of the search: the attempts spent <i>finding</i> the band are not attempts spent on its shape.
+	 *     Inside the budget only a puzzle that meets every rule is accepted; at the end of it the candidate nearest to
+	 *     meeting them is handed over. The band is never given up on - the attempts past this budget are exactly the
+	 *     ones that made every band land - only the shape is.
 	 * </p>
 	 */
-	private static final int CEILING_BUDGET = 8;
+	private static final int OFFER_BUDGET = 16;
 	
 	/**
-	 * How many fill-and-dig attempts a search at the given size may make.
-	/**
-	 * How many attempts the work ceiling is worth at the given size.
+	 * The {@link #OFFER_BUDGET} of a jigsaw grid and of any 12x12 grid, where an attempt is far dearer.
 	 * <p>
-	 *     The ceiling is a comfort preference, so what it may spend is a fraction of a second of extra searching -
+	 *     Every chaos attempt re-digs the one grown solution and re-proves uniqueness on a jigsaw layout, so each
+	 *     further attempt costs a large share of a whole classic generation. Measured at 12 seeds a band, bands 5 to
+	 *     12, a budget of 8 cost 500 to 1700 ms per board against 3's 140 to 1600 ms and returned the same puzzles
+	 *     within noise. Chaos openings are short by nature, so the rules have less to fix there in the first place.
+	 *     A 12x12 attempt is dearer for the plain reason that it has 144 cells, and the rules are calibrated at 9x9
+	 *     and only side-scaled there, so they are met less often and a full budget is run out more often.
+	 * </p>
+	 */
+	private static final int SMALL_OFFER_BUDGET = 3;
+	
+	/**
+	 * How many attempts the offer rules are worth at the given size and variant.
+	 * <p>
+	 *     The rules are a comfort preference, so what it may spend is a fraction of a second of extra searching -
 	 *     and at 16x16 one further attempt is measured in seconds, not in milliseconds, because it fills a solution
 	 *     whose cost is heavy-tailed with no ceiling at all ({@link SolutionFiller} bounds it into restarts rather
 	 *     than into a hang). It buys none there, and the first candidate in the band is taken exactly as it always
@@ -138,10 +150,14 @@ public final class PuzzleGenerator {
 	 * </p>
 	 *
 	 * @param size The grid size
-	 * @return The ceiling budget for that size, {@code 0} where the ceiling is not worth an attempt at all
+	 * @param variant The region layout variant
+	 * @return The offer budget, {@code 0} where the rules are not worth an attempt at all
 	 */
-	private static int ceilingBudgetFor(GridSize size) {
-		return size.n() == 16 ? 0 : CEILING_BUDGET;
+	private static int offerBudgetFor(GridSize size, Variant variant) {
+		if (size.n() == 16) {
+			return 0;
+		}
+		return variant == Variant.CHAOS || size.n() == 12 ? SMALL_OFFER_BUDGET : OFFER_BUDGET;
 	}
 	
 	/**
@@ -224,16 +240,14 @@ public final class PuzzleGenerator {
 		}
 		
 		int ceiling = Math.min(maxHoles, key.size().cellCount());
-		int workCeiling = BANDS.workCeiling(key.size(), key.variant(), target);
-		int ceilingBudget = ceilingBudgetFor(key.size());
+		int offerBudget = offerBudgetFor(key.size(), key.variant());
 		GeneratedPuzzle closestBelow = null;
 		int closestBelowDistance = Integer.MAX_VALUE;
-		// A candidate in the target band that carries more work than the band promises. Kept because it is still the
-		// band that was asked for, which every off-band candidate is not; the lightest one seen wins, since the whole
-		// reason it is being turned away is that it is heavy.
-		GeneratedPuzzle overworked = null;
-		int overworkedScore = Integer.MAX_VALUE;
-		// The attempt the band was first reached on, which is where CEILING_BUDGET starts counting.
+		// The best candidate in the target band that breaks one of the offer rules. Kept because it is still the band
+		// that was asked for, which every off-band candidate is not; the one nearest to meeting the rules wins.
+		GeneratedPuzzle bestInBand = null;
+		int bestInBandPenalty = Integer.MAX_VALUE;
+		// The attempt the band was first reached on, which is where OFFER_BUDGET starts counting.
 		int bandFoundOn = -1;
 		// Held as its parts rather than as a GeneratedPuzzle, because the one thing a GeneratedPuzzle must carry is
 		// the band it rated and that is exactly what this candidate does not know yet: rateUpTo stopped at the target
@@ -286,28 +300,33 @@ public final class PuzzleGenerator {
 				Difficulty band = rated.orElseThrow().band();
 				if (band == target) {
 					// Issue 2.2.2/3: the right band is no longer the whole test. A band names the hardest technique
-					// a puzzle forces and says nothing about how much of that work there is, and measured, one band
-					// spans a three- to six-fold range of it - which is what made one day's tier-12 daily six times
-					// the grind of the next day's under the same tier number. A candidate over the ceiling is
-					// over-worked rather than mis-rated, so it steers the search exactly as an over-shoot does, and
-					// it is kept: it is the tier that was asked for, which no off-band candidate is.
-					int score = rated.orElseThrow().pathScore();
-					if (score < overworkedScore) {
-						overworkedScore = score;
-						overworked = new GeneratedPuzzle(key, puzzle, solution, band);
-					}
-					if (score <= workCeiling) {
+					// a puzzle forces and says nothing about how much of that work there is or where on the path it
+					// sits: one band spans a several-fold range of work, and a puzzle can be singles for half the
+					// board around a single hard step. A candidate that breaks an offer rule steers the search and is
+					// kept, since it is the tier that was asked for, which no off-band candidate is.
+					DifficultyBands.OfferAssessment offer = BANDS.assessOffer(key.size(), key.variant(), band, holes, rated.orElseThrow().report());
+					if (offer.acceptable()) {
 						return new GeneratedPuzzle(key, puzzle, solution, band);
+					}
+					if (offer.penalty() < bestInBandPenalty) {
+						bestInBandPenalty = offer.penalty();
+						bestInBand = new GeneratedPuzzle(key, puzzle, solution, band);
 					}
 					if (bandFoundOn < 0) {
 						bandFoundOn = attempt;
 					}
-					// Past its budget the ceiling stops being worth more attempts, and the lightest candidate seen so
-					// far - which is this one or an earlier one - is the answer (see CEILING_BUDGET).
-					if (attempt - bandFoundOn >= ceilingBudget) {
-						return overworked;
+					// Past its budget the rules stop being worth more attempts, and the nearest candidate seen so far -
+					// which is this one or an earlier one - is the answer (see OFFER_BUDGET).
+					if (attempt - bandFoundOn >= offerBudget) {
+						return bestInBand;
 					}
-					most = holes - 1;
+					// Too much work means a sparser dig went too far. Everything else - too little work, a long
+					// singles opening, too few hard steps - is a puzzle that gives in too easily, so dig deeper.
+					if (offer.tooHeavy()) {
+						most = holes - 1;
+					} else {
+						fewest = holes + 1;
+					}
 					continue;
 				}
 				
@@ -320,8 +339,8 @@ public final class PuzzleGenerator {
 			}
 		}
 		
-		GeneratedPuzzle fallback = overworked != null
-			? overworked
+		GeneratedPuzzle fallback = bestInBand != null
+			? bestInBand
 			: chooseFallback(key, closestBelow, closestBelowDistance, shallowestAbove, shallowestAboveSolution, target);
 		if (fallback == null) {
 			throw new IllegalStateException("Failed to generate any puzzle for " + key + " within " + MAX_ATTEMPTS + " attempts");

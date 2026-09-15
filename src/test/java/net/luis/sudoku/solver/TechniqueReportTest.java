@@ -20,7 +20,7 @@ class TechniqueReportTest {
 	}
 	
 	private static TechniqueReport report(boolean solved, boolean stuck, int[] solution, Map<Technique, Integer> usage) {
-		return new TechniqueReport(solved, stuck, false, solution, usage);
+		return new TechniqueReport(solved, stuck, false, solution, usage, 0);
 	}
 	
 	@Test
@@ -80,6 +80,25 @@ class TechniqueReportTest {
 		TechniqueReport report = report(true, false, new int[81], usage(Technique.NAKED_SINGLE, 9, Technique.X_WING, 1, Technique.NAKED_PAIR, 4));
 		
 		assertEquals(14, report.totalSteps());
+	}
+	
+	@Test
+	void countAtOrAbove_reportWithSeveralTechniques_sumsOnlyTheLevelAndHarder() {
+		TechniqueReport report = report(true, false, new int[81], usage(Technique.NAKED_SINGLE, 9, Technique.X_WING, 1, Technique.NAKED_PAIR, 4));
+		
+		assertAll(
+			() -> assertEquals(14, report.countAtOrAbove(1)),
+			() -> assertEquals(5, report.countAtOrAbove(Technique.NAKED_PAIR.level())),
+			() -> assertEquals(1, report.countAtOrAbove(Technique.X_WING.level())),
+			() -> assertEquals(0, report.countAtOrAbove(Technique.X_WING.level() + 1))
+		);
+	}
+	
+	@Test
+	void openingPlacements_constructedValue_isReturned() {
+		TechniqueReport report = new TechniqueReport(true, false, false, new int[81], usage(Technique.NAKED_SINGLE, 9), 7);
+		
+		assertEquals(7, report.openingPlacements());
 	}
 	
 	@Test

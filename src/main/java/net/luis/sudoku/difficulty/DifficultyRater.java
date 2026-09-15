@@ -66,10 +66,11 @@ public record DifficultyRater(DifficultyBands bands) {
 	 *     exactly what a bisection over the hole budget needs in order to dig less.
 	 * </p>
 	 * <p>
-	 *     The {@link Rating#pathScore() path score} comes back with the band because the band alone no longer tells
-	 *     the search what it needs: two puzzles in one band can differ several-fold in how much work they take, and
-	 *     {@link DifficultyBands#workCeiling} is what the generator holds them to. Solving the puzzle is what produces
-	 *     the score, so returning it costs nothing here and saves a second solve there.
+	 *     The {@link Rating#report() report} comes back with the band because the band alone no longer tells the
+	 *     search what it needs: two puzzles in one band can differ several-fold in how much work they take and in how
+	 *     long they stay singles-only, and {@link DifficultyBands#assessOffer} is what the generator holds them to.
+	 *     Solving the puzzle is what produces the report, so returning it costs nothing here and saves a second solve
+	 *     there.
 	 * </p>
 	 *
 	 * @param puzzle The puzzle to rate
@@ -89,20 +90,30 @@ public record DifficultyRater(DifficultyBands bands) {
 		if (report.exceededCap() || report.stuck()) {
 			return Optional.empty();
 		}
-		return Optional.of(new Rating(this.bands.classify(puzzle.size(), puzzle.variant(), report), report.pathScore()));
+		return Optional.of(new Rating(this.bands.classify(puzzle.size(), puzzle.variant(), report), report));
 	}
 	
 	/**
-	 * A capped rating: the band a puzzle fell in, and the path score that band was derived from.
+	 * A capped rating: the band a puzzle fell in, and the solve report that band was derived from.
 	 *
 	 * @param band The difficulty band
-	 * @param pathScore The {@link TechniqueReport#pathScore() path score}, which measures how much non-routine work
-	 *   the solve took rather than how hard its hardest step was
+	 * @param report The technique report of the solve the band was classified from
 	 */
-	public record Rating(Difficulty band, int pathScore) {
+	public record Rating(Difficulty band, TechniqueReport report) {
 		
 		public Rating {
 			Objects.requireNonNull(band, "Band must not be null");
+			Objects.requireNonNull(report, "Report must not be null");
+		}
+		
+		/**
+		 * Returns the {@link TechniqueReport#pathScore() path score} of the solve, which measures how much non-routine
+		 * work it took rather than how hard its hardest step was.
+		 *
+		 * @return The path score
+		 */
+		public int pathScore() {
+			return this.report.pathScore();
 		}
 	}
 	

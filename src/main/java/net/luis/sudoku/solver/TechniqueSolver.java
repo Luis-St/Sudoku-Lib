@@ -128,17 +128,26 @@ public final class TechniqueSolver {
 		
 		CandidateGrid grid = new CandidateGrid(puzzle);
 		EnumMap<Technique, Integer> usage = new EnumMap<>(Technique.class);
-		
+		int openingPlacements = 0;
+		boolean opening = true;
+
 		while (!grid.isComplete()) {
 			Deduction deduction = nextDeduction(grid, maxLevel);
 			if (deduction == null) {
-				return new TechniqueReport(false, true, maxLevel < Technique.MAX_LEVEL, grid.values(), usage);
+				return new TechniqueReport(false, true, maxLevel < Technique.MAX_LEVEL, grid.values(), usage, openingPlacements);
 			}
-			
+
+			if (opening) {
+				if (deduction.technique().level() > Technique.ROUTINE_LEVEL) {
+					opening = false;
+				} else if (deduction instanceof Deduction.Placement) {
+					openingPlacements++;
+				}
+			}
 			deduction.applyTo(grid);
 			usage.merge(deduction.technique(), 1, Integer::sum);
 		}
-		return new TechniqueReport(grid.isSolved(), false, false, grid.values(), usage);
+		return new TechniqueReport(grid.isSolved(), false, false, grid.values(), usage, openingPlacements);
 	}
 	
 	/**

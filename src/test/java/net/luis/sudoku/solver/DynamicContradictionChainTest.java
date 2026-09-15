@@ -14,14 +14,14 @@ import static org.junit.jupiter.api.Assertions.*;
 class DynamicContradictionChainTest {
 	
 	/**
-	 * A generated SIXTEEN CLASSIC puzzle (band LISA, seed 7) whose solve applies the technique 1 time(s).
+	 * A generated SIXTEEN CLASSIC puzzle (band LISA, seed 4) whose solve applies the technique 2 time(s).
 	 * <p>
 	 *     Pinned as a key rather than as givens, so that the fixture is re-derived from the generator that
 	 *     is actually shipping rather than frozen at whatever it produced once.
 	 * </p>
 	 */
 	private static Puzzle puzzle() {
-		return StrategyFixtures.generated(GridSize.SIXTEEN, Variant.CLASSIC, Difficulty.LISA, 7L);
+		return StrategyFixtures.generated(GridSize.SIXTEEN, Variant.CLASSIC, Difficulty.LISA, 4L);
 	}
 	
 	@Test

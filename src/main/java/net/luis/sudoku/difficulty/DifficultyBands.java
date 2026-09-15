@@ -112,7 +112,69 @@ public final class DifficultyBands {
 	private static final int[] CHAOS_WORK_CEILINGS = {
 		Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, 48, 80, 128, 193, 299, 350, 480, 760, 1088, 1522, 2622, 4766
 	};
-	
+
+	/**
+	 * The least path score a puzzle <i>offered</i> as each band should carry, indexed by {@code band index - 1}.
+	 * <p>
+	 *     The other half of {@link #CLASSIC_WORK_CEILINGS}, and the half the ceiling was missing. A search that takes
+	 *     the first candidate under a ceiling does not cut the heavy end of a band, it moves the whole band to its light
+	 *     end: measured, band 8's average score fell from 213 to 149 and band 12's from 772 to 582, and a puzzle that
+	 *     light is one hard step in a sea of singles. These are the 25th percentile of the same distribution the
+	 *     ceilings are the 75th of (40 seeds a band at 9x9 classic, 24 for chaos, generator before the ceiling), so
+	 *     the search aims at the middle half of what a band naturally holds.
+	 * </p>
+	 * <p>
+	 *     Band 4's entry is a single locked-candidates step, which the band implies anyway; bands 1 to 3 score 0.
+	 * </p>
+	 */
+	private static final int[] CLASSIC_WORK_FLOORS = {
+		0, 0, 0, 16, 57, 93, 81, 144, 201, 372, 265, 501, 1184, 1344, 1801
+	};
+
+	/** The same measurement on a jigsaw grid - see {@link #CLASSIC_WORK_FLOORS}. */
+	private static final int[] CHAOS_WORK_FLOORS = {
+		0, 0, 0, 16, 64, 96, 160, 238, 316, 391, 607, 840, 1215, 1858, 3254
+	};
+
+	/**
+	 * The largest share of a puzzle's empty cells, in percent, that may be filled with singles alone before the solve
+	 * needs its first non-routine deduction.
+	 * <p>
+	 *     A band names the hardest step on the path and says nothing about <i>where</i> it is. Measured at 9x9 classic,
+	 *     a band-8 puzzle let a player place 43% of its empty cells before anything but a single was needed, which is
+	 *     what makes a hard tier feel easy for most of the board. Held to this share, the puzzle stalls early.
+	 * </p>
+	 */
+	private static final int OPENING_LIMIT_PERCENT = 20;
+
+	/** The lowest band the {@link #OPENING_LIMIT_PERCENT opening limit} applies to. */
+	private static final Difficulty OPENING_FROM_BAND = Difficulty.FIVE;
+
+	/**
+	 * How many deductions near the band's own level a puzzle offered at or above {@link #HARD_STEPS_FROM_BAND} must
+	 * need.
+	 * <p>
+	 *     The second half of the bottleneck rule. A band-12 puzzle that needs its level-12 technique once, and nothing
+	 *     close to it otherwise, is one hard moment and a stretch of routine play on either side. Counted are the
+	 *     steps at {@link #HARD_STEP_LEVEL_OFFSET} levels below the band or harder: requiring the band's own level
+	 *     twice was measured to be almost unreachable between bands 6 and 11 (at most 8 generated puzzles of 40).
+	 * </p>
+	 * <p>
+	 *     <b>Classic grids only.</b> A jigsaw grid solves its middle bands with {@link Technique#LAW_OF_LEFTOVERS} and
+	 *     score rather than with repeated steps near the band's level: measured at 12 seeds a band, 9x9 chaos met this
+	 *     rule in 0 to 7 of 12 between bands 7 and 11 however long the search ran, so holding chaos to it only ran
+	 *     every search to the end of its budget - two to three times the generation time on a phone - and returned
+	 *     nothing better. Chaos openings are short without it: the median already lies between 10% and 20%.
+	 * </p>
+	 */
+	private static final int HARD_STEPS_MINIMUM = 2;
+
+	/** How many levels below the band a deduction may be and still count as one of its {@link #HARD_STEPS_MINIMUM hard steps}. */
+	private static final int HARD_STEP_LEVEL_OFFSET = 2;
+
+	/** The lowest band the {@link #HARD_STEPS_MINIMUM hard step minimum} applies to. */
+	private static final Difficulty HARD_STEPS_FROM_BAND = Difficulty.SEVEN;
+
 	private final Map<GridSize, Map<Variant, Set<Difficulty>>> supported;
 	
 	private DifficultyBands(Map<GridSize, Map<Variant, Set<Difficulty>>> supported) {
@@ -234,7 +296,112 @@ public final class DifficultyBands {
 		}
 		return Math.max(1, (int) ((long) ceiling * size.n() / REFERENCE_SIDE));
 	}
-	
+
+	/**
+	 * Returns the least path score a puzzle offered as {@code band} should carry at the given size.
+	 * <p>
+	 *     Scaled by grid side exactly as {@link #workCeiling} is.
+	 * </p>
+	 *
+	 * @param size The grid size
+	 * @param variant The region layout variant
+	 * @param band The band the puzzle would be offered as
+	 * @return The floor, {@code 0} for a band that has none
+	 * @throws NullPointerException If the size, the variant or the band is null
+	 */
+	public int workFloor(GridSize size, Variant variant, Difficulty band) {
+		Objects.requireNonNull(size, "Grid size must not be null");
+		Objects.requireNonNull(variant, "Variant must not be null");
+		Objects.requireNonNull(band, "Band must not be null");
+
+		int floor = (variant == Variant.CHAOS ? CHAOS_WORK_FLOORS : CLASSIC_WORK_FLOORS)[band.index() - 1];
+		if (floor == 0) {
+			return 0;
+		}
+		return Math.max(1, (int) ((long) floor * size.n() / REFERENCE_SIDE));
+	}
+
+	/**
+	 * Judges whether a puzzle rated in {@code band} is one worth offering as that band.
+	 * <p>
+	 *     Like {@link #workCeiling}, this is a rule about what is offered and never about what a puzzle is:
+	 *     {@link #classify} does not consult it. It holds a candidate to four things the band alone does not promise -
+	 *     enough work ({@link #workFloor}), not too much ({@link #workCeiling}), an opening that stalls early
+	 *     ({@link #OPENING_LIMIT_PERCENT}) and, on a classic grid, more than one step near the band's own level
+	 *     ({@link #HARD_STEPS_MINIMUM}) - and says which of them it breaks, so a search knows which way to dig.
+	 * </p>
+	 *
+	 * @param size The grid size
+	 * @param variant The region layout variant
+	 * @param band The band the puzzle was rated in
+	 * @param emptyCells How many empty cells the puzzle has
+	 * @param report The uncapped-or-capped technique report the band was classified from
+	 * @return The assessment
+	 * @throws NullPointerException If the size, the variant, the band or the report is null
+	 */
+	public OfferAssessment assessOffer(GridSize size, Variant variant, Difficulty band, int emptyCells, TechniqueReport report) {
+		Objects.requireNonNull(report, "Report must not be null");
+		int floor = this.workFloor(size, variant, band);
+		int ceiling = this.workCeiling(size, variant, band);
+		int score = report.pathScore();
+
+		int scoreMissPercent = 0;
+		if (score < floor) {
+			scoreMissPercent = (int) ((long) (floor - score) * 100 / floor);
+		} else if (score > ceiling) {
+			scoreMissPercent = (int) Math.min(999, (long) (score - ceiling) * 100 / ceiling);
+		}
+
+		int openingExcessPercent = 0;
+		if (band.index() >= OPENING_FROM_BAND.index() && emptyCells > 0) {
+			openingExcessPercent = Math.max(0, report.openingPlacements() * 100 / emptyCells - OPENING_LIMIT_PERCENT);
+		}
+
+		int hardStepShortfall = 0;
+		if (variant == Variant.CLASSIC && band.index() >= HARD_STEPS_FROM_BAND.index()) {
+			int level = Math.max(Technique.ROUTINE_LEVEL + 1, band.index() - HARD_STEP_LEVEL_OFFSET);
+			hardStepShortfall = Math.max(0, HARD_STEPS_MINIMUM - report.countAtOrAbove(level));
+		}
+		return new OfferAssessment(score < floor, score > ceiling, openingExcessPercent, hardStepShortfall, scoreMissPercent);
+	}
+
+	/**
+	 * How far a puzzle rated in its band falls short of being worth offering as that band.
+	 *
+	 * @param tooLight Whether the path score is below the band's {@link #workFloor floor}
+	 * @param tooHeavy Whether the path score is above the band's {@link #workCeiling ceiling}
+	 * @param openingExcessPercent How many percentage points the singles-only opening exceeds its limit by
+	 * @param hardStepShortfall How many hard steps the solve is missing
+	 * @param scoreMissPercent How far outside the floor-to-ceiling window the score lies, in percent of the bound
+	 */
+	public record OfferAssessment(boolean tooLight, boolean tooHeavy, int openingExcessPercent, int hardStepShortfall, int scoreMissPercent) {
+
+		/**
+		 * Returns whether the puzzle meets every rule.
+		 *
+		 * @return True if nothing is short
+		 */
+		public boolean acceptable() {
+			return !this.tooLight && !this.tooHeavy && this.openingExcessPercent == 0 && this.hardStepShortfall == 0;
+		}
+
+		/**
+		 * Returns how far the puzzle is from acceptable, lower being nearer, for choosing among candidates none of
+		 * which is.
+		 * <p>
+		 *     The bottleneck outweighs the score: a puzzle whose work is slightly outside the band's usual range is a far
+		 *     smaller surprise to a player than one that is singles for half the board. Within the bottleneck a missing
+		 *     hard step weighs as much as ten points of opening, so a short opening is not traded away for a second hard
+		 *     step, which is the smaller of the two complaints.
+		 * </p>
+		 *
+		 * @return The penalty, {@code 0} for an acceptable puzzle
+		 */
+		public int penalty() {
+			return (this.hardStepShortfall * 10 + this.openingExcessPercent) * 1000 + this.scoreMissPercent;
+		}
+	}
+
 	/**
 	 * Returns the hardest band the given size and variant can produce; harder requests clamp to it.
 	 *

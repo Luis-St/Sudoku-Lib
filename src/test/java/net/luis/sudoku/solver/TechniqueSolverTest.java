@@ -82,6 +82,32 @@ class TechniqueSolverTest {
 	}
 	
 	@Test
+	void solve_singlesOnlyPuzzle_countsEveryPlacementAsOpening() {
+		Puzzle puzzle = puzzle(SINGLES_ONLY);
+		int empties = 0;
+		for (int value : puzzle.values()) {
+			if (value == 0) {
+				empties++;
+			}
+		}
+		
+		assertEquals(empties, TechniqueSolver.solve(puzzle).openingPlacements());
+	}
+	
+	@Test
+	void solve_puzzleNeedingASubset_endsTheOpeningBeforeTheLastPlacement() {
+		Puzzle puzzle = puzzle(NEEDS_SUBSET);
+		int empties = 0;
+		for (int value : puzzle.values()) {
+			if (value == 0) {
+				empties++;
+			}
+		}
+		
+		assertTrue(TechniqueSolver.solve(puzzle).openingPlacements() < empties, "A non-routine step must end the opening before the grid is full");
+	}
+	
+	@Test
 	void solve_puzzleNeedingASubset_recordsThatTechnique() {
 		TechniqueReport report = TechniqueSolver.solve(puzzle(NEEDS_SUBSET));
 		
