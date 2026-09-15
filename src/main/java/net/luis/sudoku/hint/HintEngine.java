@@ -1,6 +1,8 @@
 package net.luis.sudoku.hint;
 
 import net.luis.sudoku.grid.Puzzle;
+import net.luis.sudoku.solver.CandidateGrid;
+import net.luis.sudoku.solver.ExplainedDeduction;
 import net.luis.sudoku.solver.SolveStep;
 import net.luis.sudoku.solver.TechniqueSolver;
 
@@ -41,26 +43,27 @@ public final class HintEngine {
 	}
 	
 	/**
-	 * Reports the next hint together with the pattern the player would have to see to make the move themselves.
+	 * Reports the next step a player can make on the candidates as they stand, with the pattern behind it.
 	 * <p>
-	 *     The same hint {@link #peek(Puzzle)} reports - same cell, same technique, same board state - with the
-	 *     technique's argument attached. Naming a technique is the smallest useful hint there is, and for anything past
-	 *     the singles it is not useful at all: the player who needs to be told that a W-Wing applies is precisely the
-	 *     player who cannot find it. Marking the cells the pattern is made of turns the hint into the lesson.
+	 *     The step is whatever the solver would do next on this grid: a placement when one is available, otherwise
+	 *     the cheapest elimination. It is not walked forwards to a placement. A hint that did that explained a pattern
+	 *     whose candidates the player had never seen removed, and could name a cell the pattern had nothing to do
+	 *     with; this one only ever draws what is true of the grid it was given, and the step after it is the next
+	 *     hint.
 	 * </p>
 	 * <p>
-	 *     Costlier than {@link #peek(Puzzle)}, since a strategy that records its pattern while it searches does that
-	 *     work here. Use {@code peek} where only the cell and the name are wanted.
+	 *     The grid is the caller's reading of the board, typically the placed digits with the player's completed notes
+	 *     taken off, so eliminations the player has already made are not suggested again. It must be <b>sound</b>, i.e.
+	 *     still hold every cell's solution digit, or the deduction may be wrong.
 	 * </p>
 	 *
-	 * @param puzzle The current puzzle
-	 * @return The explained hint, or empty if the puzzle is solved or the solver cannot progress without guessing
-	 * @throws NullPointerException If the puzzle is null
+	 * @param grid The candidates to reason from, which are not mutated
+	 * @return The next deduction and its explanation, or empty if the grid is complete or no technique applies
+	 * @throws NullPointerException If the grid is null
 	 */
-	public static Optional<ExplainedHint> explain(Puzzle puzzle) {
-		Objects.requireNonNull(puzzle, "Puzzle must not be null");
-		return TechniqueSolver.nextExplainedStep(puzzle)
-			.map(explained -> new ExplainedHint(explained.step().cellIndex(), explained.step().technique(), explained.explanation()));
+	public static Optional<ExplainedDeduction> next(CandidateGrid grid) {
+		Objects.requireNonNull(grid, "Grid must not be null");
+		return TechniqueSolver.nextExplainedDeduction(grid);
 	}
 	
 	/**

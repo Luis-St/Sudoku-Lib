@@ -49,8 +49,22 @@ class ExplanationContractTest {
 	 * Positions to run every strategy against: a spread of generated puzzles, walked forwards by the solver so that
 	 * the harder techniques get grids they can actually fire on. A single fixture would exercise the singles and
 	 * nothing else.
+	 * <p>
+	 *     Built once for the class. Several tests used to call this inside their loop over the strategies, which
+	 *     generated the same eighteen puzzles again for every strategy and cost close to a minute per test. No test
+	 *     mutates a position, which {@link #findExplainedNeverMutatesTheGrid()} checks itself.
+	 * </p>
 	 */
 	private static List<CandidateGrid> positions() {
+		if (positions == null) {
+			positions = buildPositions();
+		}
+		return positions;
+	}
+	
+	private static List<CandidateGrid> positions;
+	
+	private static List<CandidateGrid> buildPositions() {
 		List<CandidateGrid> positions = new ArrayList<>();
 		for (long seed = 1; seed <= 6; seed++) {
 			// Bands 6, 9 and 12: low enough to generate quickly, spread far enough apart that the subsets, the
